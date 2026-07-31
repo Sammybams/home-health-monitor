@@ -7,8 +7,9 @@ model cannot be invented without real examples and correct answers.
 ## The main idea
 
 The sensors tell us what happened to a person's temperature, heart rate and
-movement during the last day. A model can compare those patterns with patterns
-from previously collected examples.
+movement during the last day. The system should compare that day both with the
+person's own healthy baseline and with patterns from previously collected
+examples.
 
 For example, it may learn that a combination of increasing body temperature,
 an unusual resting heart rate and reduced movement was often followed by a
@@ -48,13 +49,20 @@ defined, and the training data must represent that group.
 1. Sensors collect readings throughout the day.
 2. A collector keeps the detailed readings locally.
 3. The collector creates roughly one combined reading per minute.
-4. It sends the latest 24 hours to this service.
-5. The service validates and summarises those readings.
-6. The model returns current and future risk.
+4. It maintains small summaries of 7–14 healthy baseline days.
+5. It sends the latest 24 hours and baseline summary to this service.
+6. The service validates and summarises those readings.
+7. The service first reports whether the person has an unusual change.
+8. A validated model may also return current and future illness risk.
 
 One reading per minute produces about 1,440 readings per person per day and is a
 reasonable starting point for this device. Missing periods should stay missing.
 Inventing readings by copying the last known value can mislead the model.
+
+The longer baseline is important even though each prediction uses only the most
+recent day. Public wearable-infection research shows that a change from a
+person's normal resting pattern is often more useful than one population-wide
+normal range. See [the data-source review](data-sources.md).
 
 ## Why the first model is simple
 

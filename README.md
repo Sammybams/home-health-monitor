@@ -162,4 +162,6 @@ on the real Pi and operating-system image. Keep the server bound to `127.0.0.1`
 unless an authenticated and encrypted gateway is placed in front of it.
 
 For the choices that still need to be made before real training, read
-[`docs/design.md`](docs/design.md).
+[`docs/design.md`](docs/design.md). The researched public datasets and the
+recommended way to combine their lessons are documented in
+[`docs/data-sources.md`](docs/data-sources.md).
