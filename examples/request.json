@@ -1,0 +1,17 @@
+{
+  "subject_id": "demo-person-001",
+  "observations": [
+    {"timestamp":"2026-07-31T06:00:00Z","body_temperature_c":36.6,"ambient_temperature_c":26.8,"heart_rate_bpm":70,"motion":0},
+    {"timestamp":"2026-07-31T06:03:00Z","body_temperature_c":36.6,"ambient_temperature_c":26.9,"heart_rate_bpm":72,"motion":1},
+    {"timestamp":"2026-07-31T06:06:00Z","body_temperature_c":36.7,"ambient_temperature_c":27.0,"heart_rate_bpm":74,"motion":1},
+    {"timestamp":"2026-07-31T06:09:00Z","body_temperature_c":36.7,"ambient_temperature_c":27.0,"heart_rate_bpm":71,"motion":0},
+    {"timestamp":"2026-07-31T06:12:00Z","body_temperature_c":36.6,"ambient_temperature_c":27.1,"heart_rate_bpm":69,"motion":0},
+    {"timestamp":"2026-07-31T06:15:00Z","body_temperature_c":36.7,"ambient_temperature_c":27.1,"heart_rate_bpm":73,"motion":1},
+    {"timestamp":"2026-07-31T06:18:00Z","body_temperature_c":36.7,"ambient_temperature_c":27.2,"heart_rate_bpm":75,"motion":1},
+    {"timestamp":"2026-07-31T06:21:00Z","body_temperature_c":36.8,"ambient_temperature_c":27.2,"heart_rate_bpm":74,"motion":0},
+    {"timestamp":"2026-07-31T06:24:00Z","body_temperature_c":36.7,"ambient_temperature_c":27.3,"heart_rate_bpm":72,"motion":0},
+    {"timestamp":"2026-07-31T06:27:00Z","body_temperature_c":36.7,"ambient_temperature_c":27.3,"heart_rate_bpm":71,"motion":1},
+    {"timestamp":"2026-07-31T06:30:00Z","body_temperature_c":36.6,"ambient_temperature_c":27.2,"heart_rate_bpm":70,"motion":0},
+    {"timestamp":"2026-07-31T06:33:00Z","body_temperature_c":36.6,"ambient_temperature_c":27.2,"heart_rate_bpm":69,"motion":0}
+  ]
+}

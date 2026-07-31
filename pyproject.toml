@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "home-health-monitor"
+version = "0.1.0"
+description = "Tiny, dependency-free edge inference for home vital-sign trends"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+train = ["scikit-learn>=1.3,<2"]
+
+[project.scripts]
+home-health-monitor = "home_health_monitor.__main__:main"
+home-health-train = "home_health_monitor.training:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
