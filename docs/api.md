@@ -78,7 +78,8 @@ Required observation fields are:
 `resting` is optional and accepts `true`, `false`, `0` or `1`. An explicit value
 is preferred when the collector knows whether the person is resting or asleep.
 
-The baseline is optional, but without it the change result is
+The baseline is optional. Without it, the service still predicts from changes
+inside the submitted day, while the separate personal-change result is
 `insufficient_data`. Never attach one person's baseline to another person's
 request; the service checks the IDs and rejects a mismatch.
 
@@ -98,7 +99,27 @@ Shortened example, with individual signal details omitted:
     "interpretation": "No configured measurement changed substantially from this person's healthy baseline.",
     "disclaimer": "Change detection only; this score is not an illness probability or diagnosis."
   },
-  "prediction": null,
+  "prediction": {
+    "method": "personal_baseline_trend",
+    "confidence": "moderate",
+    "calibration_status": "not_applicable_uncalibrated_score",
+    "current_risk": {
+      "classification": "lower_risk",
+      "score": 0.17,
+      "score_type": "uncalibrated_risk_score",
+      "deviation": 1.2,
+      "threshold": 3.5
+    },
+    "future_risk": {
+      "classification": "higher_risk",
+      "score": 0.58,
+      "score_type": "uncalibrated_risk_score",
+      "deviation": 4.1,
+      "horizon_hours": 24,
+      "trend_projection_hours": 6,
+      "threshold": 3.5
+    }
+  },
   "model": {
     "status": "not_loaded",
     "reason": "could not load model: ..."
@@ -109,10 +130,21 @@ Shortened example, with individual signal details omitted:
 }
 ```
 
-The score is the largest robust difference among resting body temperature,
-resting heart rate, body-versus-room temperature and daily movement. A value at
-or above `3.5` produces `unusual_change`. This is a conservative technical
-starting threshold, not a medical emergency limit.
+The provisional score is based on the largest robust difference among resting
+body temperature, resting heart rate, body-versus-room temperature and daily
+movement. A deviation at or above `3.5` produces `higher_risk` and also produces
+`unusual_change` when a personal baseline is available. This is a conservative
+technical starting threshold, not a medical emergency limit.
+
+Every successful request contains both risk classifications. Check `method` and
+`score_type` before interpreting the number:
+
+- `within_day_trend` uses only the submitted day, has low confidence and returns
+  an uncalibrated score;
+- `personal_baseline_trend` uses the person's healthy profile, has moderate
+  confidence and returns an uncalibrated score;
+- `trained_logistic_model` returns a model probability. Its calibration status
+  remains `not_verified` until the model has passed deployment validation.
 
 If fewer than 12 resting readings exist in the latest six hours, the service
 uses the full submitted history and adds a warning. If the full history still
@@ -120,9 +152,10 @@ has fewer than 12, it returns `insufficient_data`.
 
 ## Response with a validated illness model
 
-When `artifacts/model.json` is installed, `prediction` also contains separate
-current-risk and future-risk results. The personal `change_assessment` remains
-present. Only a model validated with real illness labels should be installed.
+When `artifacts/model.json` is installed, the provisional prediction is replaced
+by separate model probabilities for current and future risk. The personal
+`change_assessment` remains present. Only a model validated with real illness
+labels should be installed.
 
 ## Common errors
 

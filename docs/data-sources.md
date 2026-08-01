@@ -206,6 +206,11 @@ The response may then contain both:
 - a personalized change score;
 - a validated illness-risk probability.
 
+Until the validated probability is available, the implemented API still returns
+provisional current and future classifications. It marks their method,
+confidence and score type so they cannot be confused with dataset-calibrated
+probabilities.
+
 ## Data we should collect with the real device
 
 For every participant:

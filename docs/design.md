@@ -77,6 +77,13 @@ full submitted history and returns a warning. The change threshold is a
 conservative engineering starting point, not an illness probability or medical
 alarm threshold.
 
+The API always returns current and 24-hour future classifications. Before an
+illness model is installed, it derives them from current change and a short
+six-hour trend projection. On a person's first day it compares the later part of
+the day with the earlier part and labels confidence as low. With a healthy
+baseline it labels confidence as moderate. These are screening predictions with
+uncalibrated scores, not claims learned from illness outcomes.
+
 ## Why the later illness model is simple
 
 The first supervised illness model will be logistic regression. In ordinary

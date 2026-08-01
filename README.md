@@ -3,9 +3,9 @@
 This project is a small health-risk screening service designed to run on a
 Raspberry Pi with only 512 MB or 1 GB of memory.
 
-It is important to understand what that means: the service can look for patterns
-that a trained model has learned, but it is **not a doctor**, it does not diagnose
-illness, and it must not replace emergency or professional medical care.
+It is important to understand what that means: the service can look for changes
+and learned patterns, but it is **not a doctor**, it does not diagnose illness,
+and it must not replace emergency or professional medical care.
 
 ## What it receives
 
@@ -37,22 +37,19 @@ available resting signal.
 
 ## What it returns
 
-The service can immediately return:
+The service always returns:
 
+- a current lower-risk or higher-risk prediction;
+- a future lower-risk or higher-risk prediction for the next 24 hours;
 - whether the latest readings are within the person's baseline;
 - whether one or more measurements changed unusually;
 - which measurements changed and in which direction;
 - warnings when the submitted history is incomplete.
 
-This change score is not an illness probability. After a separately validated
-illness model has been installed, the same response can also include:
-
-- whether the readings show lower or higher current risk;
-- a lower or higher future-risk result;
-- the estimated future-risk probability;
-- how many hours into the future the model covers;
-- warnings when the submitted sensor history has gaps or is too short;
-- the identity of the model that produced the result.
+Without a trained model, these are provisional screening predictions based on
+change and recent direction. Their scores are not illness probabilities. After
+a separately validated illness model has been installed, the same fields use
+that model and include its estimated probabilities and identity.
 
 The response deliberately uses `within_personal_baseline`, `unusual_change`,
 `lower_risk` or `higher_risk`. It does not say that somebody is definitely
@@ -85,6 +82,7 @@ framework.
 - Creation of a robust profile from 7–30 healthy days
 - Personalized resting temperature, heart-rate and activity comparison
 - A change assessment that works without an illness model
+- Current and 24-hour future screening predictions on every valid request
 - A very small model runner with no external runtime dependencies
 - Separate current-risk and future-risk predictions
 - A `/health` readiness endpoint
@@ -94,9 +92,17 @@ framework.
 - Automated tests
 
 The repository intentionally contains no made-up illness model. Without
-`artifacts/model.json`, the service still returns the personal change assessment
-and sets `prediction` to `null`. This prevents a demonstration formula from
-being mistaken for a medically tested probability.
+`artifacts/model.json`, the service uses one of two transparent provisional
+methods:
+
+- `within_day_trend` compares the latest part of the submitted day with its
+  earlier part and reports low confidence;
+- `personal_baseline_trend` compares with 7–30 healthy days and reports moderate
+  confidence.
+
+Both always return current and future classifications plus an uncalibrated risk
+score. This keeps the product functional without presenting a formula as a
+medically tested probability.
 
 ## Building a person's baseline
 
@@ -143,9 +149,10 @@ curl -sS -X POST http://127.0.0.1:8080/v1/predict \
   --data-binary @examples/request.json
 ```
 
-Because this basic example has no baseline, its change result is
-`insufficient_data`. Add a generated baseline object to obtain a personal
-comparison. The complete request and response rules are in
+Because this basic example has no baseline, its separate personal-change result
+is `insufficient_data`, but it still receives low-confidence current and future
+predictions from within-day trends. Add a generated baseline object to obtain a
+stronger personal comparison. The complete request and response rules are in
 [`docs/api.md`](docs/api.md).
 
 ## Training a model
