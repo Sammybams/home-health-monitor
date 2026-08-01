@@ -71,7 +71,9 @@ class ServerTests(unittest.TestCase):
             response = connection.getresponse()
             result = json.loads(response.read())
             self.assertEqual(200, response.status)
-            self.assertIsNone(result["prediction"])
+            self.assertEqual("within_day_trend", result["prediction"]["method"])
+            self.assertIn(result["prediction"]["current_risk"]["classification"], {"lower_risk", "higher_risk"})
+            self.assertIn(result["prediction"]["future_risk"]["classification"], {"lower_risk", "higher_risk"})
             self.assertEqual("insufficient_data", result["change_assessment"]["status"])
         finally:
             server.shutdown()

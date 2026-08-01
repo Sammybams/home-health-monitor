@@ -87,14 +87,21 @@ class TinyModel:
         future_probability = self._predict_head(vector, self.future)
         return {
             "prediction": {
+                "method": "trained_logistic_model",
+                "confidence": "model_specific",
+                "calibration_status": "not_verified",
                 "current_risk": {
                     "classification": "higher_risk" if current_probability >= self.current.threshold else "lower_risk",
                     "probability": round(current_probability, 6),
+                    "score": round(current_probability, 6),
+                    "score_type": "model_probability",
                     "threshold": self.current.threshold,
                 },
                 "future_risk": {
                     "classification": "higher_risk" if future_probability >= self.future.threshold else "lower_risk",
                     "probability": round(future_probability, 6),
+                    "score": round(future_probability, 6),
+                    "score_type": "model_probability",
                     "horizon_hours": self.future_horizon_hours,
                     "threshold": self.future.threshold,
                 },

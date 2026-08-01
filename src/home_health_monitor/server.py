@@ -11,6 +11,7 @@ from .change import assess_change
 from .contracts import InputError, parse_request
 from .features import extract_features
 from .model import ModelError, TinyModel
+from .provisional import provisional_prediction
 
 LOGGER = logging.getLogger("home_health_monitor")
 
@@ -64,14 +65,16 @@ class Handler(BaseHTTPRequestHandler):
             request = parse_request(payload)
             features, warnings = extract_features(request)
             change_assessment, change_warnings = assess_change(request)
-            warnings = sorted(set(warnings + change_warnings))
             if self.server.model is not None:
+                warnings = sorted(set(warnings + change_warnings))
                 response = self.server.model.predict(features, warnings)
                 response["change_assessment"] = change_assessment
             else:
+                prediction, prediction_warnings = provisional_prediction(request)
+                warnings = sorted(set(warnings + change_warnings + prediction_warnings))
                 response = {
                     "change_assessment": change_assessment,
-                    "prediction": None,
+                    "prediction": prediction,
                     "model": {
                         "status": "not_loaded",
                         "reason": self.server.model_error,

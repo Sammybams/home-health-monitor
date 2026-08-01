@@ -122,7 +122,7 @@ def provisional_prediction(request: PredictionRequest) -> tuple[dict, list[str]]
     return ({
         "method": method,
         "confidence": confidence,
-        "calibrated_probability": False,
+        "calibration_status": "not_applicable_uncalibrated_score",
         "current_risk": {
             "classification": _classification(current_deviation),
             "score": _risk_score(current_deviation),
