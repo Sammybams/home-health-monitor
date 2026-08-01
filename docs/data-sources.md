@@ -179,9 +179,9 @@ every normal prediction.
 
 ## Recommended product in two stages
 
-### Stage 1: personalized change monitor
+### Stage 1: personalized change monitor — implemented
 
-This stage can work before there are enough illness cases:
+This stage works before there are enough illness cases:
 
 1. Collect 7–14 healthy baseline days from the person.
 2. Calculate their normal resting temperature, heart rate and activity ranges.

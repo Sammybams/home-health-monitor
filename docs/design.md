@@ -1,8 +1,8 @@
-# How the Home Health Monitor should be completed
+# How the Home Health Monitor works and should be completed
 
 This document explains the important product and medical decisions in simple
-language. The software foundation is implemented, but a trustworthy health
-model cannot be invented without real examples and correct answers.
+language. Personal change detection is implemented, but a trustworthy
+illness-risk model cannot be invented without real examples and correct answers.
 
 ## The main idea
 
@@ -64,11 +64,24 @@ recent day. Public wearable-infection research shows that a change from a
 person's normal resting pattern is often more useful than one population-wide
 normal range. See [the data-source review](data-sources.md).
 
-## Why the first model is simple
+## The implemented first stage
 
-The first model is logistic regression. In ordinary language, it gives each
-summary a learned importance, combines them and converts the answer to a value
-between zero and one.
+The baseline builder accepts 7–30 healthy daily windows. For each day it takes
+the middle resting temperature, resting heart rate, body-to-room temperature
+difference and movement fraction. It then uses robust medians across days so
+one unusual day has limited influence.
+
+For a new request, the service compares the latest six hours of resting readings
+with that profile. If there are too few recent resting readings, it tries the
+full submitted history and returns a warning. The change threshold is a
+conservative engineering starting point, not an illness probability or medical
+alarm threshold.
+
+## Why the later illness model is simple
+
+The first supervised illness model will be logistic regression. In ordinary
+language, it gives each summary a learned importance, combines them and converts
+the answer to a value between zero and one.
 
 This is a good starting point because it is:
 

@@ -15,6 +15,7 @@ The service receives a JSON list containing roughly one day of readings:
 - room or ambient temperature;
 - heart rate;
 - whether the person was moving;
+- optionally, whether the reading was taken while resting or sleeping;
 - the time of every reading.
 
 A reading looks like this:
@@ -25,15 +26,26 @@ A reading looks like this:
   "body_temperature_c": 36.7,
   "ambient_temperature_c": 27.1,
   "heart_rate_bpm": 72,
-  "motion": 1
+  "motion": 1,
+  "resting": false
 }
 ```
 
-`motion` is `1` when motion was detected and `0` when it was not.
+`motion` is `1` when motion was detected and `0` when it was not. `resting` is
+optional. When it is missing, the service treats `motion: 0` as the best
+available resting signal.
 
 ## What it returns
 
-After a real trained model has been installed, the service returns:
+The service can immediately return:
+
+- whether the latest readings are within the person's baseline;
+- whether one or more measurements changed unusually;
+- which measurements changed and in which direction;
+- warnings when the submitted history is incomplete.
+
+This change score is not an illness probability. After a separately validated
+illness model has been installed, the same response can also include:
 
 - whether the readings show lower or higher current risk;
 - a lower or higher future-risk result;
@@ -42,17 +54,19 @@ After a real trained model has been installed, the service returns:
 - warnings when the submitted sensor history has gaps or is too short;
 - the identity of the model that produced the result.
 
-The response deliberately says `lower_risk` or `higher_risk`. It does not say
-that somebody is definitely healthy or sick.
+The response deliberately uses `within_personal_baseline`, `unusual_change`,
+`lower_risk` or `higher_risk`. It does not say that somebody is definitely
+healthy or sick.
 
 ## What happens inside
 
-The Pi does four small jobs:
+The Pi does five small jobs:
 
 1. It checks that the JSON and sensor readings make sense.
 2. It summarises the last 1, 6, and 24 hours.
-3. It gives those summaries to a tiny mathematical model.
-4. It returns the model's result as JSON.
+3. It compares resting readings with a small personal baseline profile.
+4. If installed, it also gives the summaries to a tiny illness-risk model.
+5. It returns the results as JSON.
 
 The summaries include average, minimum, maximum, variation and direction of
 change. The service also measures activity, missing time intervals and the
@@ -68,6 +82,9 @@ framework.
 - JSON validation and useful error responses
 - Fixed limits to protect the Pi's memory
 - One-, six-, and 24-hour feature calculation
+- Creation of a robust profile from 7–30 healthy days
+- Personalized resting temperature, heart-rate and activity comparison
+- A change assessment that works without an illness model
 - A very small model runner with no external runtime dependencies
 - Separate current-risk and future-risk predictions
 - A `/health` readiness endpoint
@@ -76,10 +93,30 @@ framework.
 - A Raspberry Pi `systemd` service definition
 - Automated tests
 
-The repository intentionally contains no made-up trained model. Until a model
-created from real labelled data is copied to `artifacts/model.json`, `/health`
-and `/v1/predict` return HTTP `503`. This prevents a demonstration formula from
-being mistaken for a medically tested system.
+The repository intentionally contains no made-up illness model. Without
+`artifacts/model.json`, the service still returns the personal change assessment
+and sets `prediction` to `null`. This prevents a demonstration formula from
+being mistaken for a medically tested probability.
+
+## Building a person's baseline
+
+First collect 7–30 days that are believed to represent the person's ordinary,
+healthy state. Store one request-shaped JSON object per line in a JSON Lines
+file. Every line must use the same private `subject_id`, span at least six hours
+and contain at least 12 resting samples.
+
+Build the small profile:
+
+```sh
+PYTHONPATH=src python3 -m home_health_monitor.baseline_cli \
+  data/healthy-days.jsonl \
+  data/person-baseline.json
+```
+
+The baseline stores only four robust summaries, not all of the old readings.
+The collector adds this small object under the `baseline` field of each future
+prediction request. Its `subject_id` must match the request. An illustrative
+profile is available at [`examples/baseline.json`](examples/baseline.json).
 
 ## Running the service
 
@@ -92,7 +129,7 @@ PYTHONPATH=src python3 -m home_health_monitor \
   --model artifacts/model.json
 ```
 
-Check whether a model is ready:
+Check whether the service and optional illness model are ready:
 
 ```sh
 curl -sS http://127.0.0.1:8080/health
@@ -105,6 +142,11 @@ curl -sS -X POST http://127.0.0.1:8080/v1/predict \
   -H 'Content-Type: application/json' \
   --data-binary @examples/request.json
 ```
+
+Because this basic example has no baseline, its change result is
+`insufficient_data`. Add a generated baseline object to obtain a personal
+comparison. The complete request and response rules are in
+[`docs/api.md`](docs/api.md).
 
 ## Training a model
 
