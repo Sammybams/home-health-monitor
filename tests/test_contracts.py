@@ -25,6 +25,12 @@ class ContractTests(unittest.TestCase):
         request = parse_request(payload())
         self.assertEqual(12, len(request.observations))
 
+    def test_parses_optional_resting_flag(self) -> None:
+        item = payload()
+        item["observations"][0]["resting"] = True
+        request = parse_request(item)
+        self.assertTrue(request.observations[0].resting)
+
     def test_rejects_unsorted_timestamps(self) -> None:
         item = payload()
         item["observations"][2]["timestamp"] = item["observations"][1]["timestamp"]

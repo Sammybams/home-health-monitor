@@ -52,10 +52,28 @@ class ServerTests(unittest.TestCase):
                 server.server_close()
                 thread.join(timeout=2)
 
-    def test_missing_model_is_not_ready(self) -> None:
-        server = create_server("127.0.0.1", 0, "/definitely/missing/model.json", 1024)
+    def test_missing_model_still_supports_change_service(self) -> None:
+        server = create_server("127.0.0.1", 0, "/definitely/missing/model.json", 1024 * 1024)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
         try:
             self.assertIsNone(server.model)
             self.assertIn("could not load model", server.model_error)
+            connection = http.client.HTTPConnection("127.0.0.1", server.server_port, timeout=2)
+            connection.request("GET", "/health")
+            response = connection.getresponse()
+            health = json.loads(response.read())
+            self.assertEqual(200, response.status)
+            self.assertFalse(health["illness_model_loaded"])
+
+            body = json.dumps(payload())
+            connection.request("POST", "/v1/predict", body, {"Content-Type": "application/json"})
+            response = connection.getresponse()
+            result = json.loads(response.read())
+            self.assertEqual(200, response.status)
+            self.assertIsNone(result["prediction"])
+            self.assertEqual("insufficient_data", result["change_assessment"]["status"])
         finally:
+            server.shutdown()
             server.server_close()
+            thread.join(timeout=2)
