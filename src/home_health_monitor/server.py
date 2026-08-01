@@ -4,8 +4,10 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 import logging
 from pathlib import Path
+from datetime import datetime, timezone
 from typing import Any
 
+from .change import assess_change
 from .contracts import InputError, parse_request
 from .features import extract_features
 from .model import ModelError, TinyModel
@@ -35,11 +37,11 @@ class Handler(BaseHTTPRequestHandler):
         if self.path != "/health":
             self._json(404, {"error": "not_found"})
             return
-        ready = self.server.model is not None
-        self._json(200 if ready else 503, {
-            "status": "ready" if ready else "not_ready",
-            "model_loaded": ready,
-            "reason": self.server.model_error,
+        self._json(200, {
+            "status": "ready",
+            "change_assessment_available": True,
+            "illness_model_loaded": self.server.model is not None,
+            "illness_model_reason": self.server.model_error,
         })
 
     def do_POST(self) -> None:  # noqa: N802
@@ -57,14 +59,27 @@ class Handler(BaseHTTPRequestHandler):
         if length <= 0 or length > self.server.max_body_bytes:
             self._json(413, {"error": "request_body_size_out_of_range"})
             return
-        if self.server.model is None:
-            self._json(503, {"error": "model_not_loaded", "detail": self.server.model_error})
-            return
         try:
             payload = json.loads(self.rfile.read(length))
             request = parse_request(payload)
             features, warnings = extract_features(request)
-            response = self.server.model.predict(features, warnings)
+            change_assessment, change_warnings = assess_change(request)
+            warnings = sorted(set(warnings + change_warnings))
+            if self.server.model is not None:
+                response = self.server.model.predict(features, warnings)
+                response["change_assessment"] = change_assessment
+            else:
+                response = {
+                    "change_assessment": change_assessment,
+                    "prediction": None,
+                    "model": {
+                        "status": "not_loaded",
+                        "reason": self.server.model_error,
+                    },
+                    "data_quality": {"warnings": warnings},
+                    "generated_at": datetime.now(timezone.utc).isoformat(),
+                    "disclaimer": "Change screening only; not a diagnosis or emergency service.",
+                }
         except json.JSONDecodeError:
             self._json(400, {"error": "invalid_json"})
             return
