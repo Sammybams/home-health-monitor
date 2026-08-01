@@ -29,6 +29,8 @@ class ModelTests(unittest.TestCase):
             path.write_text(json.dumps(artifact), encoding="utf-8")
             model = TinyModel.load(path)
         result = model.predict({name: 0 for name in names}, [])
+        self.assertEqual("trained_logistic_model", result["prediction"]["method"])
+        self.assertEqual("model_probability", result["prediction"]["future_risk"]["score_type"])
         self.assertEqual("higher_risk", result["prediction"]["current_risk"]["classification"])
         self.assertEqual("lower_risk", result["prediction"]["future_risk"]["classification"])
         self.assertAlmostEqual(0.268941, result["prediction"]["future_risk"]["probability"])
