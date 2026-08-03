@@ -104,6 +104,16 @@ Both always return current and future classifications plus an uncalibrated risk
 score. This keeps the product functional without presenting a formula as a
 medically tested probability.
 
+| Method | Available when | Output number | Confidence |
+| --- | --- | --- | --- |
+| `within_day_trend` | First valid day, without a baseline | Uncalibrated score | Low |
+| `personal_baseline_trend` | A 7–30 day baseline is attached | Uncalibrated score | Moderate |
+| `trained_logistic_model` | A trained artifact is installed | Model probability | Model-specific |
+
+All three methods return current and 24-hour future classifications. The
+trained artifact can declare a different future horizon when the final product
+target is defined.
+
 ## Building a person's baseline
 
 First collect 7–30 days that are believed to represent the person's ordinary,

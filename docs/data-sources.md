@@ -127,7 +127,8 @@ departures from that pattern.
 The product should therefore keep:
 
 - a short prediction window: the most recent 24 hours;
-- a longer healthy baseline: ideally 7–14 valid days to start, then updated
+- a longer healthy baseline: 7–30 valid days, ideally starting with at least
+  7–14 days and then updated
   carefully over time.
 
 The baseline can be stored as small summaries; the Pi does not need to retain
@@ -162,10 +163,11 @@ Keep the original four inputs required:
 3. heart rate;
 4. motion.
 
-Always include timestamp, sensor/device identity and a signal-quality indicator
-when the hardware provides one.
+The current API always requires a timestamp. Sensor/device identity and a
+signal-quality indicator should be added in a future contract version when the
+hardware provides them; the current version deliberately rejects unknown fields.
 
-Useful optional inputs, in priority order:
+Useful future inputs, in priority order:
 
 1. sleep or resting state;
 2. respiratory rate;
@@ -175,7 +177,9 @@ Useful optional inputs, in priority order:
 
 Symptoms and diagnostic test results are especially important during data
 collection because they create labels. They do not all need to be available for
-every normal prediction.
+every normal prediction. Of this list, only `resting` is accepted by the current
+API; the other fields require a later versioned contract after hardware support
+is confirmed.
 
 ## Recommended product in two stages
 
@@ -183,7 +187,7 @@ every normal prediction.
 
 This stage works before there are enough illness cases:
 
-1. Collect 7–14 healthy baseline days from the person.
+1. Collect 7–30 healthy baseline days from the person.
 2. Calculate their normal resting temperature, heart rate and activity ranges.
 3. Examine the most recent 24 hours.
 4. Report normal, unusual change or insufficient data.
@@ -215,7 +219,7 @@ probabilities.
 
 For every participant:
 
-- at least 7–14 ordinary baseline days;
+- 7–30 ordinary baseline days;
 - the four required signals with timestamps and quality flags;
 - sleep/rest state if possible;
 - daily symptoms and symptom-start time;

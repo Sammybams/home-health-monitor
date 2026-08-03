@@ -28,8 +28,11 @@ consistent target.
 
 ### How far into the future are we predicting?
 
-Choose one period, such as the next 24 hours. A model predicting the next six
-hours is a different model from one predicting the next three days.
+The provisional implementation currently reports risk within the next 24
+hours, using a six-hour trend projection. Before training the supervised model,
+the product owner must confirm whether 24 hours is the final target. A model
+predicting the next six hours is different from one predicting the next three
+days.
 
 ### What exactly do the sensors measure?
 
@@ -49,11 +52,11 @@ defined, and the training data must represent that group.
 1. Sensors collect readings throughout the day.
 2. A collector keeps the detailed readings locally.
 3. The collector creates roughly one combined reading per minute.
-4. It maintains small summaries of 7–14 healthy baseline days.
+4. It maintains small summaries of 7–30 healthy baseline days.
 5. It sends the latest 24 hours and baseline summary to this service.
 6. The service validates and summarises those readings.
-7. The service first reports whether the person has an unusual change.
-8. A validated model may also return current and future illness risk.
+7. The service reports personal change plus provisional current and future risk.
+8. A validated model replaces the provisional risk calculation when installed.
 
 One reading per minute produces about 1,440 readings per person per day and is a
 reasonable starting point for this device. Missing periods should stay missing.
@@ -165,7 +168,7 @@ authenticated HTTPS gateway in front of it.
 ## What is still needed from the project owner
 
 - The exact sickness/current-risk definitions
-- The future prediction period
+- Confirmation that 24 hours is the final supervised-model prediction period
 - Sensor details and sampling frequency
 - The intended users
 - A labelled dataset from multiple people

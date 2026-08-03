@@ -148,7 +148,8 @@ Every successful request contains both risk classifications. Check `method` and
 
 If fewer than 12 resting readings exist in the latest six hours, the service
 uses the full submitted history and adds a warning. If the full history still
-has fewer than 12, it returns `insufficient_data`.
+has fewer than 12, the separate `change_assessment` returns
+`insufficient_data`; current and future predictions are still returned.
 
 ## Response with a validated illness model
 
