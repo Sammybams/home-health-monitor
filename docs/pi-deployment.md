@@ -70,8 +70,8 @@ installed.
 
 ## Recommended Pi setup
 
-Use Raspberry Pi OS Lite without a desktop. Python 3.10 or newer is required.
-The inference service has no third-party Python dependencies.
+Use Raspberry Pi OS Lite Bookworm or newer without a desktop. Python 3.10 or
+newer is required. The inference service has no third-party Python dependencies.
 
 On the Pi:
 
@@ -154,13 +154,17 @@ A working installation without a trained model returns HTTP 200 with:
 Send the repository's first-day example:
 
 ```sh
-curl -sS -X POST http://127.0.0.1:8080/v1/predict \
+sudo -u home-health curl -sS -X POST http://127.0.0.1:8080/v1/predict \
   -H 'Content-Type: application/json' \
   --data-binary @/opt/home-health-monitor/examples/request.json
 ```
 
 The response contains both current and future provisional predictions even
 though no baseline or trained model is installed.
+
+The command uses the service account because the recommended permissions
+intentionally prevent ordinary login users from reading application files under
+`/opt/home-health-monitor`.
 
 ## Create and use a personal baseline
 
@@ -239,10 +243,11 @@ Raw health request bodies are not written to service logs.
 Apply code updates explicitly and restart only after tests pass:
 
 ```sh
-cd /opt/home-health-monitor
-sudo git pull --ff-only origin main
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src \
-  python3 -m unittest discover -s tests -v
+sudo git -C /opt/home-health-monitor pull --ff-only origin main
+sudo -u home-health env PYTHONDONTWRITEBYTECODE=1 \
+  PYTHONPATH=/opt/home-health-monitor/src \
+  /usr/bin/python3 -m unittest discover \
+  -s /opt/home-health-monitor/tests -v
 sudo systemctl restart home-health-monitor
 curl -sS http://127.0.0.1:8080/health
 ```
@@ -250,7 +255,7 @@ curl -sS http://127.0.0.1:8080/health
 For controlled deployments, record the deployed Git commit with:
 
 ```sh
-git rev-parse HEAD
+sudo git -C /opt/home-health-monitor rev-parse HEAD
 ```
 
 ## Network and privacy boundary
@@ -259,3 +264,20 @@ Do not change the service to `0.0.0.0` merely to make it reachable from another
 computer. If remote access is required, place an authenticated HTTPS gateway in
 front of it and define retention and access policies for the health data. The
 default localhost-only deployment is the safest fit for the original Pi plan.
+
+## Deployment responsibility summary
+
+| Component | Status | Location |
+| --- | --- | --- |
+| JSON validation and feature extraction | Implemented | Pi prediction service |
+| First-day current and future prediction | Implemented | Pi prediction service |
+| Personal baseline builder and prediction | Implemented | Pi or preparation computer |
+| Optional trained-model inference | Implemented; model artifact pending | Pi prediction service |
+| Physical sensor drivers | Pending exact sensor models | Pi collector |
+| Rolling 24-hour sensor buffer | Pending collector integration | Pi collector |
+| Display, mobile application or remote gateway | Pending product choice | Pi or external device |
+| Validated illness model | Pending labelled target-device data | Trained away from Pi |
+
+This matches the initial plan: the lightweight AI and JSON service run on the
+Pi, while the collector plugs in once the exact body-temperature,
+ambient-temperature, heart-rate and motion hardware is known.
