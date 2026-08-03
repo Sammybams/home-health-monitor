@@ -83,14 +83,16 @@ sudo apt install --no-install-recommends python3 ca-certificates git curl
 Create a non-login service account:
 
 ```sh
-sudo useradd --system \
-  --home-dir /opt/home-health-monitor \
-  --shell /usr/sbin/nologin \
+sudo adduser --system \
+  --group \
+  --no-create-home \
+  --home /opt/home-health-monitor \
   home-health
 ```
 
-If the account already exists, `useradd` will report that fact and no new
-account is needed.
+This creates both the `home-health` user and the matching group required by the
+systemd unit. If the account already exists, verify both entries with
+`id home-health`.
 
 ## Install the application
 
@@ -126,6 +128,13 @@ The service:
 
 The 64 MB ceiling is a starting configuration. Confirm actual memory and latency
 on the exact 512 MB Pi and OS image before field deployment.
+
+Inspect live resource usage with:
+
+```sh
+systemctl show home-health-monitor \
+  -p MemoryCurrent -p MemoryMax -p TasksCurrent
+```
 
 ## Verify the installation
 
@@ -257,6 +266,17 @@ For controlled deployments, record the deployed Git commit with:
 ```sh
 sudo git -C /opt/home-health-monitor rev-parse HEAD
 ```
+
+After initial installation or an update, reboot once and confirm the service
+starts without an SSH session:
+
+```sh
+sudo reboot
+```
+
+After reconnecting, call `/health` and send the example request again. Also test
+with the internet disconnected; local sensor-to-prediction operation does not
+require internet access.
 
 ## Network and privacy boundary
 
