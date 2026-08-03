@@ -1,6 +1,7 @@
 [Unit]
 Description=Home Health Monitor edge inference
 After=network.target
+ConditionPathExists=/opt/home-health-monitor/src/home_health_monitor
 
 [Service]
 Type=simple
@@ -8,14 +9,26 @@ User=home-health
 Group=home-health
 WorkingDirectory=/opt/home-health-monitor
 Environment=PYTHONPATH=/opt/home-health-monitor/src
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=PYTHONUNBUFFERED=1
 ExecStart=/usr/bin/python3 -m home_health_monitor --host 127.0.0.1 --port 8080 --model /opt/home-health-monitor/artifacts/model.json
 Restart=on-failure
 RestartSec=5
+UMask=0077
 NoNewPrivileges=true
 PrivateTmp=true
+PrivateDevices=true
 ProtectSystem=strict
 ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 MemoryMax=64M
+TasksMax=16
+LimitNOFILE=128
 
 [Install]
 WantedBy=multi-user.target
