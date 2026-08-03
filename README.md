@@ -212,8 +212,12 @@ PYTHONPATH=src python3 -m unittest discover -s tests -v
 
 ## Installing on the Pi
 
-Copy this project and the trained model to `/opt/home-health-monitor`. Create a
-non-administrator Linux user called `home-health`, then adapt and install
+The complete component diagram, Raspberry Pi OS preparation, installation,
+baseline workflow, model upgrade, verification, logging and update procedure are
+in the [Raspberry Pi deployment guide](docs/pi-deployment.md).
+
+In short, copy this project to `/opt/home-health-monitor`, create a
+non-administrator Linux user called `home-health`, then install
 [`deploy/home-health-monitor.service`](deploy/home-health-monitor.service).
 
 The included service starts with a 64 MB memory limit. That limit must be tested
