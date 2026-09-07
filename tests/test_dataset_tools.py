@@ -7,6 +7,10 @@ import unittest
 
 from home_health_monitor.datasets.audit import audit_galaxy, audit_synthetic
 from home_health_monitor.datasets.galaxyppg import convert_galaxy
+from home_health_monitor.datasets.development import (
+    build_development_corpus,
+    load_supplied_monitoring_rows,
+)
 from home_health_monitor.datasets.synthetic import convert_synthetic
 
 
@@ -68,6 +72,66 @@ class DatasetToolTests(unittest.TestCase):
         record = next(convert_galaxy(self.root))
 
         self.assertAlmostEqual(4.81, record["motion_intensity"], places=2)
+
+    def test_galaxy_converter_reads_published_skin_temperature_headers(self) -> None:
+        watch = self.root / "P03" / "GalaxyWatch"
+        self.write_csv(
+            watch / "SkinTemp.csv",
+            ["dataReceived", "timestamp", "ambientTemp", "objectTemp", "status"],
+            [[1001, 1000, 30.2, 32.4, 0]],
+        )
+
+        record = next(convert_galaxy(self.root))
+
+        self.assertEqual(32.4, record["skin_temperature_c"])
+        self.assertEqual(30.2, record["ambient_temperature_c"])
+
+    def test_development_corpus_deduplicates_and_trains_on_normal_only(self) -> None:
+        path = self.root / "healthmonitoringandfalldetection.csv"
+        fields = [
+            "heart_rate",
+            "oxygen_level",
+            "temperature",
+            "acceleration_magnitude",
+            "health_condition",
+        ]
+        normal = [72, 98, 36.7, 9.81, "Normal"]
+        abnormal = [128, 84, 38.5, 7.2, "Hypoxia"]
+        self.write_csv(path, fields, [normal, abnormal, normal, abnormal])
+
+        rows = load_supplied_monitoring_rows(path)
+        corpus = build_development_corpus(rows, subject_count=6, windows_per_subject=2, seed=9)
+
+        self.assertEqual(2, len(rows))
+        self.assertEqual(1, sum(row.is_normal for row in rows))
+        self.assertEqual(12, len(corpus.normal_windows))
+        self.assertEqual(6, len({row.subject_id for row in corpus.normal_windows}))
+        self.assertEqual(12, len(corpus.simulated_anomaly_windows))
+        self.assertTrue(all(row.decision == "normal" for row in corpus.normal_windows))
+        self.assertTrue(
+            all(row.decision == "engineering_simulation" for row in corpus.simulated_anomaly_windows)
+        )
+        self.assertEqual(288, len(corpus.normal_windows[0].values))
+
+    def test_development_corpus_is_deterministic(self) -> None:
+        path = self.root / "healthmonitoringandfalldetection.csv"
+        self.write_csv(
+            path,
+            [
+                "heart_rate",
+                "oxygen_level",
+                "temperature",
+                "acceleration_magnitude",
+                "health_condition",
+            ],
+            [[72, 98, 36.7, 9.81, "Normal"]],
+        )
+        rows = load_supplied_monitoring_rows(path)
+
+        first = build_development_corpus(rows, subject_count=3, windows_per_subject=1, seed=3)
+        second = build_development_corpus(rows, subject_count=3, windows_per_subject=1, seed=3)
+
+        self.assertEqual(first, second)
 
     def test_galaxy_audit_reports_missing_spo2(self) -> None:
         watch = self.root / "P01" / "GalaxyWatch"

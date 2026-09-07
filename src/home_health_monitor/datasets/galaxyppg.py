@@ -89,8 +89,18 @@ def convert_galaxy(root: str | Path) -> Iterator[dict[str, object]]:
                         name: value for name, value in zip(("x", "y", "z"), axes)
                     }
                 elif sensor == "skin_temperature":
-                    skin = _number(row, "bodyTemperature", "skinTemperature", "body", "skin")
-                    ambient = _number(row, "ambientTemperature", "ambient")
+                    skin = _number(
+                        row,
+                        "objectTemp",
+                        "objectTemperature",
+                        "bodyTemperature",
+                        "skinTemperature",
+                        "body",
+                        "skin",
+                    )
+                    ambient = _number(
+                        row, "ambientTemp", "ambientTemperature", "ambient"
+                    )
                     if skin is None and ambient is None:
                         continue
                     if skin is not None:
