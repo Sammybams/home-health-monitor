@@ -190,6 +190,54 @@ def select_thresholds(errors: Iterable[float]) -> tuple[float, float]:
     return persistent, severe
 
 
+def summarize_scores(errors: Iterable[float], *, threshold: float) -> dict[str, float]:
+    values = [float(value) for value in errors]
+    if not values:
+        raise TrainingDataError("score summary requires at least one error")
+    return {
+        "count": len(values),
+        "minimum": min(values),
+        "mean": sum(values) / len(values),
+        "maximum": max(values),
+        "fraction_at_or_above_threshold": sum(value >= threshold for value in values)
+        / len(values),
+    }
+
+
+def _engineering_anomalies(test_data: Any, np: Any) -> tuple[Any, list[str]]:
+    result = test_data.copy()
+    scenarios = (
+        ("sustained_high_heart_rate", 0, 3.8),
+        ("sustained_low_spo2", 1, -4.2),
+        ("sustained_high_temperature", 2, 4.0),
+        ("sustained_motion_change", 3, 4.5),
+    )
+    names = []
+    for index in range(len(result)):
+        name, feature, shift = scenarios[index % len(scenarios)]
+        start = 120 + index % 24
+        result[index, start : start + 48, feature] += shift
+        names.append(name)
+    return result, names
+
+
+def _quantized_predictions(interpreter: Any, data: Any, np: Any) -> Any:
+    input_detail = interpreter.get_input_details()[0]
+    output_detail = interpreter.get_output_details()[0]
+    input_scale, input_zero_point = input_detail["quantization"]
+    output_scale, output_zero_point = output_detail["quantization"]
+    predictions = []
+    for item in data:
+        quantized = np.clip(
+            np.rint(item / input_scale) + input_zero_point, -128, 127
+        ).astype(np.int8)
+        interpreter.set_tensor(input_detail["index"], quantized[np.newaxis, ...])
+        interpreter.invoke()
+        output = interpreter.get_tensor(output_detail["index"])[0]
+        predictions.append((output.astype(np.float32) - output_zero_point) * output_scale)
+    return np.asarray(predictions, dtype=np.float32)
+
+
 def train_and_export(
     input_path: str | Path,
     output_directory: str | Path,
@@ -197,6 +245,7 @@ def train_and_export(
     epochs: int = 30,
     batch_size: int = 16,
     seed: int = 42,
+    artifact_role: str = "candidate",
 ) -> dict[str, Any]:
     try:
         import numpy as np
@@ -222,7 +271,7 @@ def train_and_export(
             monitor="val_loss", patience=5, restore_best_weights=True
         )
     ]
-    model.fit(
+    history = model.fit(
         train_data,
         train_data,
         validation_data=(validation_data, validation_data),
@@ -232,12 +281,6 @@ def train_and_export(
         callbacks=callbacks,
         verbose=2,
     )
-
-    validation_errors = _errors(
-        validation_data, model.predict(validation_data, verbose=0), np
-    )
-    test_errors = _errors(test_data, model.predict(test_data, verbose=0), np)
-    persistent_threshold, severe_threshold = select_thresholds(validation_errors)
 
     converter = tf.lite.TFLiteConverter.from_keras_model(model)
     converter.optimizations = [tf.lite.Optimize.DEFAULT]
@@ -258,10 +301,19 @@ def train_and_export(
     output_detail = interpreter.get_output_details()[0]
     input_scale, input_zero_point = input_detail["quantization"]
     output_scale, output_zero_point = output_detail["quantization"]
+    simulated_data, simulated_scenarios = _engineering_anomalies(test_data, np)
+    validation_reconstructions = _quantized_predictions(interpreter, validation_data, np)
+    test_reconstructions = _quantized_predictions(interpreter, test_data, np)
+    simulated_reconstructions = _quantized_predictions(interpreter, simulated_data, np)
+    validation_errors = _errors(validation_data, validation_reconstructions, np)
+    test_errors = _errors(test_data, test_reconstructions, np)
+    simulated_errors = _errors(simulated_data, simulated_reconstructions, np)
+    persistent_threshold, severe_threshold = select_thresholds(validation_errors)
     checksum = hashlib.sha256(tflite_model).hexdigest()
     metadata = {
         "schema_version": 1,
         "model_id": f"gateway-ae-{uuid.uuid4().hex[:12]}",
+        "artifact_role": artifact_role,
         "trained_at": datetime.now(timezone.utc).isoformat(),
         "feature_manifest_id": FEATURE_MANIFEST_ID,
         "model_sha256": checksum,
@@ -299,6 +351,9 @@ def train_and_export(
             "test_false_anomaly_fraction": float(
                 np.mean(test_errors >= persistent_threshold)
             ),
+            "engineering_simulated_anomaly_detection_fraction": float(
+                np.mean(simulated_errors >= persistent_threshold)
+            ),
         },
     }
     if len(tflite_model) >= 1024 * 1024:
@@ -308,6 +363,47 @@ def train_and_export(
     (destination / "model.tflite").write_bytes(tflite_model)
     (destination / "model-metadata.json").write_text(
         json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    feature_count = len(FEATURE_NAMES)
+    report = {
+        "schema_version": 1,
+        "artifact_role": artifact_role,
+        "model_id": metadata["model_id"],
+        "threshold": persistent_threshold,
+        "history": {
+            name: [float(value) for value in values]
+            for name, values in history.history.items()
+        },
+        "normal_validation_scores": [float(value) for value in validation_errors],
+        "normal_test_scores": [float(value) for value in test_errors],
+        "simulated_anomaly_scores": [float(value) for value in simulated_errors],
+        "simulated_anomaly_scenarios": simulated_scenarios,
+        "summaries": {
+            "normal_validation": summarize_scores(
+                validation_errors, threshold=persistent_threshold
+            ),
+            "normal_test": summarize_scores(test_errors, threshold=persistent_threshold),
+            "engineering_simulation": summarize_scores(
+                simulated_errors, threshold=persistent_threshold
+            ),
+        },
+        "example": {
+            "feature_names": list(FEATURE_NAMES[:feature_count]),
+            "normal_input": test_data[0, :, :feature_count].astype(float).tolist(),
+            "normal_reconstruction": test_reconstructions[0, :, :feature_count]
+            .astype(float)
+            .tolist(),
+            "simulated_input": simulated_data[0, :, :feature_count]
+            .astype(float)
+            .tolist(),
+            "simulated_reconstruction": simulated_reconstructions[0, :, :feature_count]
+            .astype(float)
+            .tolist(),
+            "simulated_scenario": simulated_scenarios[0],
+        },
+    }
+    (destination / "training-report.json").write_text(
+        json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
     from .autoencoder import AutoencoderModel
 
@@ -350,6 +446,9 @@ def main() -> None:
     parser.add_argument("--epochs", type=int, default=30)
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument(
+        "--artifact-role", choices=("candidate", "development_demo"), default="candidate"
+    )
     parser.add_argument("--smoke-test", action="store_true")
     args = parser.parse_args()
     if args.epochs < 1 or args.batch_size < 1:
@@ -359,7 +458,12 @@ def main() -> None:
             source = Path(directory) / "smoke.jsonl"
             _smoke_rows(source)
             metadata = train_and_export(
-                source, args.output, epochs=1, batch_size=2, seed=args.seed
+                source,
+                args.output,
+                epochs=1,
+                batch_size=2,
+                seed=args.seed,
+                artifact_role="development_demo",
             )
     elif args.input is None:
         parser.error("input is required unless --smoke-test is used")
@@ -370,6 +474,7 @@ def main() -> None:
             epochs=args.epochs,
             batch_size=args.batch_size,
             seed=args.seed,
+            artifact_role=args.artifact_role,
         )
     print(json.dumps(metadata, indent=2, sort_keys=True))
 

@@ -12,6 +12,7 @@ from home_health_monitor.gateway.training import (
     grouped_split,
     load_windows,
     select_thresholds,
+    summarize_scores,
 )
 
 
@@ -103,6 +104,13 @@ class GatewayTrainingTests(unittest.TestCase):
 
         self.assertGreater(persistent, 0.0)
         self.assertGreater(severe, persistent)
+
+    def test_score_summary_reports_rates_against_threshold(self) -> None:
+        summary = summarize_scores([0.1, 0.2, 0.5], threshold=0.2)
+
+        self.assertAlmostEqual(2 / 3, summary["fraction_at_or_above_threshold"])
+        self.assertEqual(0.1, summary["minimum"])
+        self.assertEqual(0.5, summary["maximum"])
 
 
 if __name__ == "__main__":
