@@ -4,7 +4,12 @@ from datetime import datetime, timedelta, timezone
 import unittest
 
 from home_health_monitor.contracts import InputError
-from home_health_monitor.gateway.calibration import build_calibration, robust_deviations
+from home_health_monitor.gateway.calibration import (
+    build_calibration,
+    profile_from_dict,
+    profile_to_dict,
+    robust_deviations,
+)
 from home_health_monitor.gateway.contracts import parse_packet
 from tests.test_gateway_contracts import valid_packet
 
@@ -111,6 +116,13 @@ class GatewayCalibrationTests(unittest.TestCase):
 
         with self.assertRaisesRegex(InputError, "same subject"):
             build_calibration(packets)
+
+    def test_ready_profile_round_trips_through_json_shape(self) -> None:
+        ready = build_calibration(packets_for(hours=49, coverage=0.9))
+
+        restored = profile_from_dict(profile_to_dict(ready.profile))
+
+        self.assertEqual(ready.profile, restored)
 
 
 if __name__ == "__main__":

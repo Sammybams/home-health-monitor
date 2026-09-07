@@ -58,6 +58,71 @@ class CalibrationResult:
     profile: CalibrationProfile | None
 
 
+def profile_to_dict(profile: CalibrationProfile | None) -> dict[str, object]:
+    if profile is None:
+        raise InputError("a ready calibration profile is required")
+    return {
+        "schema_version": profile.schema_version,
+        "subject_id": profile.subject_id,
+        "feature_manifest_id": profile.feature_manifest_id,
+        "sensor_config_id": profile.sensor_config_id,
+        "temperature_type": profile.temperature_type,
+        "temperature_site": profile.temperature_site,
+        "started_at": profile.started_at.isoformat(),
+        "ready_at": profile.ready_at.isoformat(),
+        "expected_interval_seconds": profile.expected_interval_seconds,
+        "packet_count": profile.packet_count,
+        "coverage": profile.coverage,
+        "low_motion_hours": profile.low_motion_hours,
+        "signals": {
+            name: {"median": signal.median, "mad_scale": signal.mad_scale}
+            for name, signal in profile.signals.items()
+        },
+    }
+
+
+def profile_from_dict(value: dict[str, object]) -> CalibrationProfile:
+    try:
+        if value["schema_version"] != 1:
+            raise InputError("unsupported calibration profile schema_version")
+        raw_signals = value["signals"]
+        if not isinstance(raw_signals, dict) or set(raw_signals) != set(SIGNAL_NAMES):
+            raise InputError("calibration profile signals do not match the gateway")
+        signals = {}
+        for name in SIGNAL_NAMES:
+            item = raw_signals[name]
+            if not isinstance(item, dict):
+                raise InputError(f"invalid calibration signal {name}")
+            median = float(item["median"])
+            scale = float(item["mad_scale"])
+            if not math.isfinite(median) or not math.isfinite(scale) or scale <= 0:
+                raise InputError(f"invalid calibration signal {name}")
+            signals[name] = CalibrationSignal(median, scale)
+        started_at = datetime.fromisoformat(str(value["started_at"]))
+        ready_at = datetime.fromisoformat(str(value["ready_at"]))
+        if started_at.tzinfo is None or ready_at.tzinfo is None:
+            raise InputError("calibration timestamps must include a timezone")
+        return CalibrationProfile(
+            schema_version=1,
+            subject_id=str(value["subject_id"]),
+            feature_manifest_id=str(value["feature_manifest_id"]),
+            sensor_config_id=str(value["sensor_config_id"]),
+            temperature_type=str(value["temperature_type"]),
+            temperature_site=str(value["temperature_site"]),
+            started_at=started_at,
+            ready_at=ready_at,
+            expected_interval_seconds=float(value["expected_interval_seconds"]),
+            packet_count=int(value["packet_count"]),
+            coverage=float(value["coverage"]),
+            low_motion_hours=float(value["low_motion_hours"]),
+            signals=signals,
+        )
+    except InputError:
+        raise
+    except (KeyError, TypeError, ValueError) as exc:
+        raise InputError(f"invalid calibration profile: {exc}") from exc
+
+
 def _is_valid_normal(packet: FeaturePacket) -> bool:
     quality = packet.quality
     return (
@@ -186,6 +251,15 @@ def robust_deviations(
         raise InputError("a ready calibration profile is required")
     if packet.subject_id != profile.subject_id:
         raise InputError("packet and calibration profile must use the same subject")
+    if packet.feature_manifest_id != profile.feature_manifest_id:
+        raise InputError("packet and calibration profile must use the same feature manifest")
+    if packet.sensor_config_id != profile.sensor_config_id:
+        raise InputError("packet and calibration profile must use the same sensor configuration")
+    if (
+        packet.temperature_type != profile.temperature_type
+        or packet.temperature_site != profile.temperature_site
+    ):
+        raise InputError("packet and calibration profile must use the same temperature measurement")
     return {
         name: (float(getattr(packet, name)) - profile.signals[name].median)
         / profile.signals[name].mad_scale
