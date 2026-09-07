@@ -11,6 +11,7 @@ dependencies = []
 
 [project.optional-dependencies]
 train = ["scikit-learn>=1.3,<2"]
+gateway = ["numpy>=1.24,<3"]
 
 [project.scripts]
 home-health-monitor = "home_health_monitor.__main__:main"
