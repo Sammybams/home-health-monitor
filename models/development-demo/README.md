@@ -9,6 +9,7 @@ including int8 inference, reconstruction scoring, thresholding, and plots.
 - `model.tflite`: 18 KiB fully int8 Conv1D autoencoder;
 - `model-metadata.json`: tensor contract, checksum, thresholds, split, and metrics;
 - `training-report.json`: loss history, score distributions, and one reconstruction;
+- `performance-summary.json`: confusion counts and fixed-threshold metrics;
 - `data-evidence.json`: reproducible profile of the three reviewed data sources.
 
 The model was trained with seed `42` for 30 epochs on 240 generated normal
@@ -22,5 +23,8 @@ coverage. They were not joined into invented people and were not directly fed
 to this four-feature autoencoder: GalaxyPPG lacks SpO2, while BIDMC lacks
 temperature and motion and covers only short ICU recordings.
 
-Rebuild instructions and interpretation are in
-[`docs/development-model.md`](../../docs/development-model.md).
+The authoritative run is the executed
+[`train-and-evaluate-autoencoder.ipynb`](../../notebooks/train-and-evaluate-autoencoder.ipynb)
+notebook. Rebuild instructions and interpretation are in the
+[development-model report](../../docs/development-model.md), and the complete
+runtime path is in the [end-to-end guide](../../docs/end-to-end.md).

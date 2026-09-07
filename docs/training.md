@@ -136,6 +136,11 @@ BIDMC were compared separately because neither has the complete aligned feature
 set. See [the development model report](development-model.md) for exact data,
 commands, metrics, and interpretation.
 
+The authoritative development run is
+[`notebooks/train-and-evaluate-autoencoder.ipynb`](../notebooks/train-and-evaluate-autoencoder.ipynb).
+It performs the training itself and invokes this module's reusable Python
+implementation; it does not merely display previously calculated results.
+
 ## Install a selected artifact
 
 Copy both files together. The gateway rejects mismatched or modified files:

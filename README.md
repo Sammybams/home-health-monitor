@@ -73,6 +73,9 @@ the complete int8 path using a reproducible development corpus; see the
 [development model results](docs/development-model.md). It is intentionally
 tagged `development_demo` so it cannot be confused with the later field model.
 
+The actual training run is in the executable
+[training and evaluation notebook](notebooks/train-and-evaluate-autoencoder.ipynb).
+
 ## Prediction order
 
 The final rule is:
@@ -131,16 +134,19 @@ Use Python 3.9-3.12 on a development computer:
 python3 -m venv .venv-train
 . .venv-train/bin/activate
 python -m pip install --upgrade pip
-python -m pip install -e '.[gateway-train,analysis]'
+python -m pip install -e '.[gateway-train,analysis,notebook]'
 
-home-health-gateway-train data/normal-windows.jsonl artifacts/gateway
+MPLBACKEND=Agg python -m jupyter nbconvert \
+  --execute --to notebook --inplace \
+  --ExecutePreprocessor.timeout=600 \
+  notebooks/train-and-evaluate-autoencoder.ipynb
 ```
 
-Training data must contain normal 24-hour windows created from the actual
-target wearable. People are split between training, validation, and testing;
-one person's windows never appear in more than one group. The output is an
-int8 model, metadata, thresholds, participant lists, metrics, and a SHA-256
-checksum. See [the training guide](docs/training.md).
+That notebook is the authoritative development run. For the later field model,
+replace its development input with normal 24-hour windows created from the
+actual target wearable. People are split between training, validation, and
+testing; one person's windows never appear in more than one group. See the
+[training guide](docs/training.md).
 
 ## Test
 
@@ -151,6 +157,7 @@ PYTHONPATH=src python3 -m unittest discover -s tests -v
 ## Documentation
 
 - [API and packet contract](docs/api.md)
+- [End-to-end model operation and Raspberry Pi use](docs/end-to-end.md)
 - [Implemented architecture and decision logic](docs/design.md)
 - [Training and artifact workflow](docs/training.md)
 - [Dataset roles and audit commands](docs/data-sources.md)

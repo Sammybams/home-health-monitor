@@ -5,6 +5,11 @@ There is now a real, runnable int8 model in
 training and inference mechanism and gives us visible results while recordings
 from the final wearable are being collected.
 
+The executed
+[training and evaluation notebook](../notebooks/train-and-evaluate-autoencoder.ipynb)
+is the source of this model, not a placeholder. Its training cell creates the
+windows, fits for 30 epochs, quantizes, evaluates, and writes the artifacts.
+
 ## What data could safely be used
 
 ![Feature availability across the reviewed datasets](assets/development-demo/dataset-feature-availability.png)
@@ -52,11 +57,25 @@ normal patterns without the training curve separating from validation.
 
 ![Normal and controlled-anomaly reconstruction scores](assets/development-demo/autoencoder-score-distribution.png)
 
-The int8 model's persistent threshold is `0.01419624`. On this development
-corpus, none of the 36 held-out normal windows crossed it. All 36 controlled
-shift windows crossed it. The controlled changes are deliberately clear, so
-the 100% separation demonstrates pipeline behaviour, not expected field
+The int8 model's persistent threshold is `0.01428919`. On this development
+corpus, four of the 36 held-out normal windows crossed it, while all 36
+controlled shift windows crossed it. The controlled changes are deliberately
+clear, so this result demonstrates pipeline behaviour, not expected field
 accuracy.
+
+![Development confusion matrix](assets/development-demo/autoencoder-confusion-matrix.png)
+
+At the fixed threshold, the held-out development evaluation produced 32 true
+normal results, four false anomalies, zero missed controlled anomalies, and 36
+detected controlled anomalies. Accuracy was `94.44%`, anomaly precision `90%`,
+recall `100%`, specificity `88.89%`, and F1 `94.74%`.
+
+![Scores by controlled scenario](assets/development-demo/autoencoder-scenario-performance.png)
+
+Each scenario contains nine windows, and all nine crossed the threshold. Low
+SpO2 produced a tightly grouped score near `0.381`; motion change produced the
+largest mean score (`0.406`); high temperature averaged `0.323`; and high heart
+rate averaged `0.194`.
 
 ![Input and reconstruction for a controlled anomaly](assets/development-demo/autoencoder-reconstruction-example.png)
 
@@ -80,24 +99,22 @@ distinguish physiological change from missing or unreliable measurements.
 
 ## Reproduce the development model
 
+The notebook is the primary training entry point:
+
 Create the training environment on a development computer, not the Pi:
 
 ```sh
 python3.12 -m venv .venv-train
 . .venv-train/bin/activate
-python -m pip install -e '.[gateway-train,analysis]'
+python -m pip install -e '.[gateway-train,analysis,notebook]'
+MPLBACKEND=Agg python -m jupyter nbconvert \
+  --execute --to notebook --inplace \
+  --ExecutePreprocessor.timeout=600 \
+  notebooks/train-and-evaluate-autoencoder.ipynb
 ```
 
-Build the normal-only development windows from the supplied CSV:
-
-```sh
-home-health-development-data \
-  /path/to/00000025-healthmonitoringandfalldetection.csv \
-  /secure-work/development-normal-windows.jsonl \
-  --subjects 60 --windows-per-subject 4 --seed 42
-```
-
-Train and export the int8 artifact:
+The notebook calls the following Python entry points internally. They remain
+available for automation outside Jupyter:
 
 ```sh
 home-health-gateway-train \

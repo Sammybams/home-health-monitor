@@ -5,6 +5,9 @@ sensors, derives heart rate, performs its immediate check, and transmits a BLE
 feature packet. A hardware BLE bridge converts that packet to the documented
 local JSON request. This repository does not implement the wearable or SMS.
 
+For the complete model, calibration, prediction, notebook, and deployment flow,
+start with the [end-to-end guide](end-to-end.md).
+
 ## Runtime layout
 
 ```text
