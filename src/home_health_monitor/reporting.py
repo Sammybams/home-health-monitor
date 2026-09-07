@@ -26,6 +26,75 @@ def availability_matrix(
     return sources, labels, matrix
 
 
+def _ratio(numerator: int, denominator: int) -> float:
+    return numerator / denominator if denominator else 0.0
+
+
+def binary_performance(
+    normal_scores: list[float], anomaly_scores: list[float], *, threshold: float
+) -> dict[str, Any]:
+    """Summarize a controlled binary evaluation at one fixed threshold."""
+    tn = sum(score < threshold for score in normal_scores)
+    fp = len(normal_scores) - tn
+    tp = sum(score >= threshold for score in anomaly_scores)
+    fn = len(anomaly_scores) - tp
+    precision = _ratio(tp, tp + fp)
+    recall = _ratio(tp, tp + fn)
+    specificity = _ratio(tn, tn + fp)
+    return {
+        "threshold": threshold,
+        "confusion": {"tn": tn, "fp": fp, "fn": fn, "tp": tp},
+        "accuracy": _ratio(tp + tn, tp + tn + fp + fn),
+        "precision": precision,
+        "recall": recall,
+        "specificity": specificity,
+        "balanced_accuracy": (recall + specificity) / 2,
+        "f1": _ratio(2 * precision * recall, precision + recall),
+        "normal_windows": len(normal_scores),
+        "controlled_anomaly_windows": len(anomaly_scores),
+    }
+
+
+def scenario_score_summary(
+    scenarios: list[str], scores: list[float], *, threshold: float
+) -> dict[str, dict[str, float | int]]:
+    if len(scenarios) != len(scores):
+        raise ValueError("scenario names and scores must have equal lengths")
+    grouped: dict[str, list[float]] = {}
+    for scenario, score in zip(scenarios, scores):
+        grouped.setdefault(scenario, []).append(float(score))
+    return {
+        name: {
+            "count": len(values),
+            "mean_score": sum(values) / len(values),
+            "minimum_score": min(values),
+            "maximum_score": max(values),
+            "detection_fraction": sum(value >= threshold for value in values)
+            / len(values),
+        }
+        for name, values in sorted(grouped.items())
+    }
+
+
+def performance_summary(report: dict[str, Any]) -> dict[str, Any]:
+    threshold = float(report["threshold"])
+    return {
+        "artifact_role": report["artifact_role"],
+        "model_id": report["model_id"],
+        "evaluation_scope": "held_out_generated_normal_vs_controlled_simulation",
+        "binary": binary_performance(
+            report["normal_test_scores"],
+            report["simulated_anomaly_scores"],
+            threshold=threshold,
+        ),
+        "by_scenario": scenario_score_summary(
+            report["simulated_anomaly_scenarios"],
+            report["simulated_anomaly_scores"],
+            threshold=threshold,
+        ),
+    }
+
+
 def _style(plt: Any) -> None:
     plt.rcParams.update(
         {
@@ -59,6 +128,7 @@ def render_development_plots(
 
     evidence = json.loads(Path(evidence_path).read_text(encoding="utf-8"))
     report = json.loads(Path(training_report_path).read_text(encoding="utf-8"))
+    threshold = float(report["threshold"])
     destination = Path(output_directory)
     destination.mkdir(parents=True, exist_ok=True)
     _style(plt)
@@ -80,6 +150,57 @@ def render_development_plots(
     plt.close(fig)
     created.append(path)
 
+    performance = performance_summary(report)
+    confusion = performance["binary"]["confusion"]
+    confusion_values = [
+        [confusion["tn"], confusion["fp"]],
+        [confusion["fn"], confusion["tp"]],
+    ]
+    fig, ax = plt.subplots(figsize=(6.2, 5.2))
+    ax.imshow(confusion_values, cmap="Blues", vmin=0)
+    ax.set_xticks((0, 1), ("Predicted normal", "Predicted anomaly"))
+    ax.set_yticks((0, 1), ("Actual normal", "Controlled anomaly"))
+    for row, values in enumerate(confusion_values):
+        for column, value in enumerate(values):
+            ax.text(column, row, str(value), ha="center", va="center", fontsize=18, fontweight="bold", color="white" if value > max(map(max, confusion_values)) / 2 else "#0F172A")
+    ax.set_title("Development evaluation confusion matrix", loc="left", fontweight="bold")
+    ax.tick_params(length=0)
+    path = destination / "autoencoder-confusion-matrix.png"
+    _save(fig, path)
+    plt.close(fig)
+    created.append(path)
+
+    grouped_scores: dict[str, list[float]] = {}
+    for scenario, score in zip(
+        report["simulated_anomaly_scenarios"], report["simulated_anomaly_scores"]
+    ):
+        grouped_scores.setdefault(scenario, []).append(float(score))
+    scenario_names = sorted(grouped_scores)
+    display_scenarios = [name.replace("sustained_", "").replace("_", " ").title() for name in scenario_names]
+    fig, ax = plt.subplots(figsize=(9.4, 4.8))
+    boxes = ax.boxplot(
+        [grouped_scores[name] for name in scenario_names],
+        tick_labels=display_scenarios,
+        patch_artist=True,
+        showfliers=False,
+        medianprops={"color": "#0F172A", "linewidth": 2},
+    )
+    for box in boxes["boxes"]:
+        box.set(facecolor="#F4B76E", edgecolor="#92400E")
+    for index, name in enumerate(scenario_names, 1):
+        values = grouped_scores[name]
+        offsets = [index + (position - (len(values) - 1) / 2) * 0.018 for position in range(len(values))]
+        ax.scatter(offsets, values, color="#2563EB", edgecolor="white", linewidth=0.5, zorder=3)
+    ax.axhline(threshold, color="#0F172A", linewidth=2, linestyle=":", label="Decision threshold")
+    ax.set_title("Reconstruction error by controlled anomaly", loc="left", fontweight="bold")
+    ax.set_ylabel("Quantized-model mean squared error")
+    ax.grid(axis="y", linewidth=0.7)
+    ax.legend(frameon=False)
+    path = destination / "autoencoder-scenario-performance.png"
+    _save(fig, path)
+    plt.close(fig)
+    created.append(path)
+
     history = report["history"]
     epochs = range(1, len(history["loss"]) + 1)
     fig, ax = plt.subplots(figsize=(8.4, 4.4))
@@ -97,7 +218,6 @@ def render_development_plots(
 
     normal = report["normal_test_scores"]
     simulated = report["simulated_anomaly_scores"]
-    threshold = float(report["threshold"])
     fig, ax = plt.subplots(figsize=(8.4, 4.4))
     bins = 16
     ax.hist(normal, bins=bins, color="#2563EB", alpha=0.72, label="Held-out normal", edgecolor="#1E3A8A")
@@ -142,6 +262,13 @@ def main() -> None:
     parser.add_argument("training_report", type=Path)
     parser.add_argument("output_directory", type=Path)
     args = parser.parse_args()
+    report = json.loads(args.training_report.read_text(encoding="utf-8"))
+    summary_path = args.training_report.with_name("performance-summary.json")
+    summary_path.write_text(
+        json.dumps(performance_summary(report), indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    print(summary_path)
     for path in render_development_plots(
         args.evidence, args.training_report, args.output_directory
     ):

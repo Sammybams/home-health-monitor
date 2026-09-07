@@ -14,7 +14,11 @@ from home_health_monitor.datasets.development import (
     write_normal_windows,
 )
 from home_health_monitor.datasets.evidence import profile_bidmc, profile_galaxy
-from home_health_monitor.reporting import availability_matrix
+from home_health_monitor.reporting import (
+    availability_matrix,
+    binary_performance,
+    scenario_score_summary,
+)
 from home_health_monitor.gateway.training import load_windows
 from home_health_monitor.datasets.synthetic import convert_synthetic
 
@@ -210,6 +214,30 @@ class DatasetToolTests(unittest.TestCase):
         self.assertEqual(["first"], sources)
         self.assertEqual("Heart rate", features[0])
         self.assertEqual([[1, 0, 1, 0]], matrix)
+
+    def test_binary_performance_uses_normal_as_negative_class(self) -> None:
+        performance = binary_performance(
+            normal_scores=[0.1, 0.3],
+            anomaly_scores=[0.4, 0.8],
+            threshold=0.35,
+        )
+
+        self.assertEqual({"tn": 2, "fp": 0, "fn": 0, "tp": 2}, performance["confusion"])
+        self.assertEqual(1.0, performance["accuracy"])
+        self.assertEqual(1.0, performance["precision"])
+        self.assertEqual(1.0, performance["recall"])
+        self.assertEqual(1.0, performance["specificity"])
+
+    def test_scenario_summary_keeps_each_simulation_separate(self) -> None:
+        summary = scenario_score_summary(
+            ["low_spo2", "high_temperature", "low_spo2"],
+            [0.4, 0.3, 0.5],
+            threshold=0.35,
+        )
+
+        self.assertEqual(2, summary["low_spo2"]["count"])
+        self.assertEqual(1.0, summary["low_spo2"]["detection_fraction"])
+        self.assertEqual(0.0, summary["high_temperature"]["detection_fraction"])
 
     def test_galaxy_audit_reports_missing_spo2(self) -> None:
         watch = self.root / "P01" / "GalaxyWatch"
