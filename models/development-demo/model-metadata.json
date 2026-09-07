@@ -94,37 +94,37 @@
       "mask_quality_temperature",
       "mask_quality_motion"
     ],
-    "scale": 0.007656787056475878,
+    "scale": 0.007680831477046013,
     "shape": [
       1,
       288,
       16
     ],
-    "zero_point": -63
+    "zero_point": -69
   },
   "metrics": {
     "engineering_simulated_anomaly_detection_fraction": 1.0,
-    "test_false_anomaly_fraction": 0.0,
-    "test_mean_reconstruction_error": 0.01207644771784544,
-    "validation_error_p99": 0.014196240343153477
+    "test_false_anomaly_fraction": 0.1111111111111111,
+    "test_mean_reconstruction_error": 0.012559915892779827,
+    "validation_error_p99": 0.014289190666750074
   },
-  "model_id": "gateway-ae-fefeb2d64aae",
-  "model_sha256": "31e35232f850995ec99b658603fb5c8abbd7011c091b08a7e97f73c6a09ccd50",
+  "model_id": "gateway-ae-cc9b07502845",
+  "model_sha256": "19bac53bb029fe82808e7a032d1a8f6d048a2aea2993d1495935834f3dc97ac0",
   "output": {
     "dtype": "int8",
-    "scale": 0.007656787056475878,
+    "scale": 0.007680831477046013,
     "shape": [
       1,
       288,
       16
     ],
-    "zero_point": -63
+    "zero_point": -69
   },
   "schema_version": 1,
   "thresholds": {
     "consecutive_windows": 2,
-    "persistent_error": 0.014196240343153477,
-    "severe_error": 0.028392480686306953
+    "persistent_error": 0.014289190666750074,
+    "severe_error": 0.028578381333500148
   },
-  "trained_at": "2026-09-07T23:16:56.762715+00:00"
+  "trained_at": "2026-09-07T23:26:24.165076+00:00"
 }
