@@ -4,6 +4,7 @@ import csv
 from pathlib import Path
 import tempfile
 import unittest
+import zipfile
 
 from home_health_monitor.datasets.audit import audit_galaxy, audit_synthetic
 from home_health_monitor.datasets.galaxyppg import convert_galaxy
@@ -12,6 +13,7 @@ from home_health_monitor.datasets.development import (
     load_supplied_monitoring_rows,
     write_normal_windows,
 )
+from home_health_monitor.datasets.evidence import profile_bidmc, profile_galaxy
 from home_health_monitor.gateway.training import load_windows
 from home_health_monitor.datasets.synthetic import convert_synthetic
 
@@ -158,6 +160,34 @@ class DatasetToolTests(unittest.TestCase):
         write_normal_windows(corpus, output)
 
         self.assertEqual(3, len(load_windows(output)))
+
+    def test_bidmc_profile_counts_real_hr_and_spo2_rows(self) -> None:
+        archive = self.root / "bidmc.zip"
+        content = "Time [s], HR, PULSE, RESP, SpO2\n0,72,72,14,98\n1,73,73,14,97\n"
+        with zipfile.ZipFile(archive, "w") as handle:
+            handle.writestr("bidmc_csv/bidmc_01_Numerics.csv", content)
+
+        profile = profile_bidmc(archive)
+
+        self.assertEqual(1, profile["participants"])
+        self.assertEqual(2, profile["heart_rate"]["count"])
+        self.assertEqual(97.0, profile["spo2"]["minimum"])
+
+    def test_galaxy_profile_reports_target_stream_coverage(self) -> None:
+        watch = self.root / "P03" / "GalaxyWatch"
+        self.write_csv(watch / "HR.csv", ["timestamp", "hr"], [[1000, 72]])
+        self.write_csv(watch / "ACC.csv", ["timestamp", "x", "y", "z"], [[1000, 0, 0, 9.81]])
+        self.write_csv(
+            watch / "SkinTemp.csv",
+            ["timestamp", "ambientTemp", "objectTemp"],
+            [[1000, 30, 32]],
+        )
+
+        profile = profile_galaxy(self.root)
+
+        self.assertEqual(1, profile["participants"])
+        self.assertEqual(1, profile["heart_rate"]["count"])
+        self.assertFalse(profile["feature_availability"]["spo2_percent"])
 
     def test_galaxy_audit_reports_missing_spo2(self) -> None:
         watch = self.root / "P01" / "GalaxyWatch"
