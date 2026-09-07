@@ -1,5 +1,5 @@
 [Unit]
-Description=Home Health Monitor edge inference
+Description=Home Health Monitor gateway inference
 After=network.target
 ConditionPathExists=/opt/home-health-monitor/src/home_health_monitor
 
@@ -11,7 +11,8 @@ WorkingDirectory=/opt/home-health-monitor
 Environment=PYTHONPATH=/opt/home-health-monitor/src
 Environment=PYTHONDONTWRITEBYTECODE=1
 Environment=PYTHONUNBUFFERED=1
-ExecStart=/usr/bin/python3 -m home_health_monitor --host 127.0.0.1 --port 8080 --model /opt/home-health-monitor/artifacts/model.json
+StateDirectory=home-health-monitor
+ExecStart=/usr/bin/python3 -m home_health_monitor --host 127.0.0.1 --port 8080 --database /var/lib/home-health-monitor/gateway.db --model /opt/home-health-monitor/artifacts/gateway/model.tflite --model-metadata /opt/home-health-monitor/artifacts/gateway/model-metadata.json
 Restart=on-failure
 RestartSec=5
 UMask=0077
@@ -26,7 +27,7 @@ ProtectControlGroups=true
 RestrictSUIDSGID=true
 RestrictRealtime=true
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
-MemoryMax=64M
+MemoryMax=96M
 TasksMax=16
 LimitNOFILE=128
 
