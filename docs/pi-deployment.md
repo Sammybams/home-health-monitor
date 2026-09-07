@@ -156,6 +156,12 @@ large personal deviation triggers `gateway_baseline` in a controlled test.
 
 ## 7. Install a trained model
 
+For hardware integration today, the versioned demonstration files are at
+`models/development-demo/model.tflite` and `model-metadata.json`. They run the
+same inference contract but remain tagged `development_demo`. Use them to prove
+installation, memory, latency, and end-to-end packet handling; replace them as
+a pair with the selected field candidate later.
+
 Train and select both artifacts off-device. Copy them to a temporary location:
 
 ```sh

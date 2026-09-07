@@ -4,9 +4,13 @@ No reviewed public dataset contains the exact target wearable's continuous
 motion, SpO2, temperature, derived heart rate, full-day coverage, and deployment
 population. The datasets therefore have separate, explicit roles.
 
+The exact audited counts and plots from all three reviewed sources are in the
+[development model report](development-model.md).
+
 ## GalaxyPPG: engineering validation only
 
-[GalaxyPPG](https://zenodo.org/records/14635823) contains 24 participants with
+[GalaxyPPG](https://zenodo.org/records/14635823) has metadata for 24 participants;
+23 have Galaxy Watch files in the downloaded archive. It also contains
 Galaxy Watch 5, Empatica E4, and Polar H10 recordings. The published
 [dataset paper](https://www.nature.com/articles/s41597-025-05152-z) and
 [supplementary code](https://github.com/Kaist-ICLab/GalaxyPPG-Supplementary-Code)
@@ -44,7 +48,7 @@ Samsung's [sensor specification](https://developer.samsung.com/health/sensor/gui
 also confirms that watch skin temperature is not body-core temperature. The
 target wearable's temperature type and site must remain fixed and versioned.
 
-## Supplied monitoring/fall CSV: excluded
+## Supplied monitoring/fall CSV: development demonstration only
 
 The attached `healthmonitoringandfalldetection.csv` was audited directly:
 
@@ -63,10 +67,11 @@ PYTHONPATH=src python3 -m home_health_monitor.datasets.audit \
   synthetic /path/to/healthmonitoringandfalldetection.csv
 ```
 
-That file is not eligible for production training. A corrected Version 2 file,
-if supplied, is still synthetic and can be used only for demonstrations and
-pipeline/schema tests. The converter requires `corrected` and `v2` or
-`version2` in its filename and marks each output row `synthetic_demo`.
+That file is not eligible for field-model training. Its 11 distinct `Normal`
+rows now seed the repository's deterministic development-window generator, so
+the end-to-end model can be trained and demonstrated today. Its condition rows
+are not autoencoder training labels. A corrected Version 2 file, if supplied,
+remains synthetic and is still restricted to development use.
 
 ## BIDMC: not the gateway training set
 
@@ -75,6 +80,11 @@ contains short ICU recordings. It can support isolated optical-signal research,
 but it lacks the intended temperature/motion combination, does not provide
 target-device full-day normal windows, and represents a hospital rather than
 home population. It is not fed into this autoencoder.
+
+The downloaded archive contains 53 numerical subject files with 25,489 usable
+heart-rate values and 25,365 usable SpO2 values. Those observations make BIDMC
+useful as a real range reference even though they cannot fill the missing
+temperature, motion, or full-day requirements.
 
 ## Production source: the actual wearable
 

@@ -127,6 +127,15 @@ The model can learn normal without disease outcomes. Simulated anomalies can
 test whether the pipeline responds, but they are not training labels and do not
 establish field performance.
 
+## Runnable development model available now
+
+The repository includes a small model explicitly tagged `development_demo`,
+plus its full training report and plots. It was trained on generated normal
+patterns seeded by the distinct normal rows in the supplied CSV. GalaxyPPG and
+BIDMC were compared separately because neither has the complete aligned feature
+set. See [the development model report](development-model.md) for exact data,
+commands, metrics, and interpretation.
+
 ## Install a selected artifact
 
 Copy both files together. The gateway rejects mismatched or modified files:

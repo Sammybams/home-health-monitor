@@ -68,6 +68,11 @@ immediate `normal` or `anomaly` result.
 - GalaxyPPG and supplied-synthetic-data audit tools;
 - automated tests for the gateway, model contract, training input, and API.
 
+A trained 18 KiB development model and its plots are included now. It exercises
+the complete int8 path using a reproducible development corpus; see the
+[development model results](docs/development-model.md). It is intentionally
+tagged `development_demo` so it cannot be confused with the later field model.
+
 ## Prediction order
 
 The final rule is:
@@ -126,7 +131,7 @@ Use Python 3.9-3.12 on a development computer:
 python3 -m venv .venv-train
 . .venv-train/bin/activate
 python -m pip install --upgrade pip
-python -m pip install -e '.[gateway-train]'
+python -m pip install -e '.[gateway-train,analysis]'
 
 home-health-gateway-train data/normal-windows.jsonl artifacts/gateway
 ```
@@ -149,7 +154,9 @@ PYTHONPATH=src python3 -m unittest discover -s tests -v
 - [Implemented architecture and decision logic](docs/design.md)
 - [Training and artifact workflow](docs/training.md)
 - [Dataset roles and audit commands](docs/data-sources.md)
+- [Development dataset comparison, trained model, and plots](docs/development-model.md)
 - [Raspberry Pi deployment and verification](docs/pi-deployment.md)
 
 Downloaded health datasets, generated participant windows, the SQLite database,
-and trained artifacts stay outside Git.
+and field-model artifacts stay outside Git. The small, clearly labelled
+development demonstration is versioned for reproducibility.
