@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import argparse
 from dataclasses import dataclass
 import json
 import math
@@ -174,3 +175,39 @@ def write_normal_windows(corpus: DevelopmentCorpus, path: str | Path) -> None:
     with destination.open("w", encoding="utf-8") as handle:
         for window in corpus.normal_windows:
             handle.write(json.dumps(window.training_record(), separators=(",", ":")) + "\n")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Build a development-only normal-window corpus from the supplied CSV"
+    )
+    parser.add_argument("supplied_csv", type=Path)
+    parser.add_argument("output", type=Path)
+    parser.add_argument("--subjects", type=int, default=60)
+    parser.add_argument("--windows-per-subject", type=int, default=4)
+    parser.add_argument("--seed", type=int, default=42)
+    args = parser.parse_args()
+    rows = load_supplied_monitoring_rows(args.supplied_csv)
+    corpus = build_development_corpus(
+        rows,
+        subject_count=args.subjects,
+        windows_per_subject=args.windows_per_subject,
+        seed=args.seed,
+    )
+    write_normal_windows(corpus, args.output)
+    summary = {
+        "artifact_role": "development_demo",
+        "normal_only_training": True,
+        "supplied_unique_rows": corpus.supplied_unique_rows,
+        "supplied_normal_rows": corpus.supplied_normal_rows,
+        "virtual_subjects": args.subjects,
+        "normal_windows": len(corpus.normal_windows),
+        "withheld_engineering_simulations": len(corpus.simulated_anomaly_windows),
+        "output": str(args.output),
+        "seed": args.seed,
+    }
+    print(json.dumps(summary, indent=2, sort_keys=True))
+
+
+if __name__ == "__main__":
+    main()

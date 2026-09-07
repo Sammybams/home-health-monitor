@@ -10,7 +10,9 @@ from home_health_monitor.datasets.galaxyppg import convert_galaxy
 from home_health_monitor.datasets.development import (
     build_development_corpus,
     load_supplied_monitoring_rows,
+    write_normal_windows,
 )
+from home_health_monitor.gateway.training import load_windows
 from home_health_monitor.datasets.synthetic import convert_synthetic
 
 
@@ -132,6 +134,30 @@ class DatasetToolTests(unittest.TestCase):
         second = build_development_corpus(rows, subject_count=3, windows_per_subject=1, seed=3)
 
         self.assertEqual(first, second)
+
+    def test_development_writer_emits_loader_compatible_normal_data(self) -> None:
+        path = self.root / "healthmonitoringandfalldetection.csv"
+        self.write_csv(
+            path,
+            [
+                "heart_rate",
+                "oxygen_level",
+                "temperature",
+                "acceleration_magnitude",
+                "health_condition",
+            ],
+            [[72, 98, 36.7, 9.81, "Normal"]],
+        )
+        corpus = build_development_corpus(
+            load_supplied_monitoring_rows(path),
+            subject_count=3,
+            windows_per_subject=1,
+        )
+        output = self.root / "normal-windows.jsonl"
+
+        write_normal_windows(corpus, output)
+
+        self.assertEqual(3, len(load_windows(output)))
 
     def test_galaxy_audit_reports_missing_spo2(self) -> None:
         watch = self.root / "P01" / "GalaxyWatch"
