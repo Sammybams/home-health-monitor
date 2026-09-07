@@ -5,9 +5,11 @@ import hashlib
 import json
 from pathlib import Path
 import tempfile
+from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 
-from home_health_monitor.gateway.autoencoder import AutoencoderModel, ModelError
+from home_health_monitor.gateway.autoencoder import AutoencoderModel, ModelError, _runtime_factory
 from home_health_monitor.gateway.windowing import FEATURE_NAMES, ModelWindow
 
 
@@ -84,6 +86,15 @@ class FakeInterpreter:
 
 
 class GatewayAutoencoderTests(unittest.TestCase):
+    def test_runtime_factory_supports_tensorflow_lite_attribute(self) -> None:
+        marker = object()
+        tensorflow = SimpleNamespace(lite=SimpleNamespace(Interpreter=marker))
+
+        with patch.dict("sys.modules", {"tensorflow": tensorflow}):
+            factory = _runtime_factory()
+
+        self.assertIs(marker, factory)
+
     def test_identity_reconstruction_has_zero_error(self) -> None:
         model = AutoencoderModel.from_interpreter(metadata(), FakeInterpreter())
 

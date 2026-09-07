@@ -86,9 +86,9 @@ def _runtime_factory() -> Callable[..., InterpreterProtocol]:
         return Interpreter
     except ImportError:
         try:
-            from tensorflow.lite import Interpreter
+            import tensorflow as tf
 
-            return Interpreter
+            return tf.lite.Interpreter
         except ImportError as exc:
             raise ModelError("no TensorFlow Lite runtime is installed") from exc
 
