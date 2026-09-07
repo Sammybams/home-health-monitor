@@ -114,7 +114,8 @@ def render_development_plots(
     created.append(path)
 
     example = report["example"]
-    labels = example["feature_names"][:4]
+    display_names = dict(FEATURES)
+    labels = [display_names.get(name, name) for name in example["feature_names"][:4]]
     observed = example["simulated_input"]
     reconstructed = example["simulated_reconstruction"]
     fig, axes = plt.subplots(4, 1, figsize=(10, 8), sharex=True)
