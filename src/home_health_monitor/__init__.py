@@ -1,3 +1,3 @@
-"""Home Health Monitor edge inference package."""
+"""Lightweight home-gateway anomaly inference."""
 
 __version__ = "0.1.0"
