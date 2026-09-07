@@ -14,6 +14,7 @@ from home_health_monitor.datasets.development import (
     write_normal_windows,
 )
 from home_health_monitor.datasets.evidence import profile_bidmc, profile_galaxy
+from home_health_monitor.reporting import availability_matrix
 from home_health_monitor.gateway.training import load_windows
 from home_health_monitor.datasets.synthetic import convert_synthetic
 
@@ -188,6 +189,27 @@ class DatasetToolTests(unittest.TestCase):
         self.assertEqual(1, profile["participants"])
         self.assertEqual(1, profile["heart_rate"]["count"])
         self.assertFalse(profile["feature_availability"]["spo2_percent"])
+
+    def test_availability_matrix_preserves_source_and_feature_order(self) -> None:
+        evidence = {
+            "sources": [
+                {
+                    "dataset": "first",
+                    "feature_availability": {
+                        "heart_rate_bpm": True,
+                        "spo2_percent": False,
+                        "temperature_c": True,
+                        "motion_intensity": False,
+                    },
+                }
+            ]
+        }
+
+        sources, features, matrix = availability_matrix(evidence)
+
+        self.assertEqual(["first"], sources)
+        self.assertEqual("Heart rate", features[0])
+        self.assertEqual([[1, 0, 1, 0]], matrix)
 
     def test_galaxy_audit_reports_missing_spo2(self) -> None:
         watch = self.root / "P01" / "GalaxyWatch"

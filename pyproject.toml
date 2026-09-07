@@ -15,6 +15,7 @@ gateway-train = [
     "numpy>=1.24,<3",
     "tensorflow>=2.15,<3; python_version < '3.13'",
 ]
+analysis = ["matplotlib>=3.7,<4"]
 
 [project.scripts]
 home-health-monitor = "home_health_monitor.__main__:main"
@@ -22,6 +23,7 @@ home-health-gateway-train = "home_health_monitor.gateway.training:main"
 home-health-dataset-audit = "home_health_monitor.datasets.audit:main"
 home-health-development-data = "home_health_monitor.datasets.development:main"
 home-health-data-evidence = "home_health_monitor.datasets.evidence:main"
+home-health-development-report = "home_health_monitor.reporting:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
