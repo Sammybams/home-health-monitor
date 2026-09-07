@@ -6,6 +6,10 @@ Build a battery-conscious wearable and Raspberry Pi home gateway that decide
 whether the wearer's current physiological pattern is `normal` or `anomaly`
 relative to that person's own baseline.
 
+This repository implements only the Raspberry Pi home gateway. Wearable
+firmware is an external producer described here only to define the BLE packet
+contract consumed by the gateway.
+
 The system does not diagnose a disease, predict a named illness or estimate a
 medical probability. An `anomaly` means that the readings or their recent
 pattern have departed enough from the person's baseline that somebody should
@@ -41,7 +45,7 @@ data-quality information, but these do not add a third decision class.
 
 ```mermaid
 flowchart LR
-    S[PPG/SpO2, temperature and accelerometer] --> W[Wearable sampling and filtering]
+    S[External wearable sensors] --> W[External wearable firmware]
     W --> F[Feature extraction]
     F --> Z[Immediate robust z-score tier]
     F --> B[BLE feature packet]
@@ -54,14 +58,16 @@ flowchart LR
     C --> O[Local normal or anomaly result]
 ```
 
-### Wearable node
+### External wearable node
 
-The wearable wakes on a configurable schedule. The initial deployment default
-is one cycle per minute. During a cycle it samples for 2-5 seconds, filters the
-signals, derives the compact features, performs the immediate mathematical
-check, transmits one BLE packet and returns to sleep.
+The wearable behavior is outside this repository. It wakes on a configurable
+schedule. The initial deployment default is one cycle per minute. During a cycle
+it samples for 2-5 seconds, filters the signals, derives the compact features,
+performs the immediate mathematical check, transmits one BLE packet and returns
+to sleep.
 
-The wearable does not run the long-term autoencoder. Its responsibilities are:
+The gateway assumes that the external wearable does not run the long-term
+autoencoder. The external wearable contract requires it to:
 
 - remove clearly invalid sensor samples;
 - derive pulse rate from the optical waveform;
@@ -200,8 +206,7 @@ An example local result is:
     "motion": 0
   },
   "calibration": {"status": "ready", "hours": 48},
-  "timestamp": "2026-09-07T20:00:00Z",
-  "disclaimer": "Personal anomaly screening only; not a diagnosis."
+  "timestamp": "2026-09-07T20:00:00Z"
 }
 ```
 
@@ -314,7 +319,8 @@ models are supplied.
 2. Add reproducible audits and converters for GalaxyPPG and the corrected
    synthetic demonstration data.
 3. Implement durable gateway packet storage and 48-hour calibration.
-4. Implement and test the immediate robust-deviation tier in portable code.
+4. Implement the gateway robust-deviation fallback and consume the wearable's
+   immediate decision without implementing wearable firmware.
 5. Implement target-device window generation and normal-only autoencoder
    training.
 6. Export and validate the quantized artifact and pure fallback metadata.
@@ -334,7 +340,8 @@ records and generated participant windows remain outside Git.
 - Every accepted inference produces exactly `normal` or `anomaly`.
 - Heart rate is derived from the optical signal and is covered by quality
   checks.
-- The wearable-tier calculation works without the gateway model.
+- The gateway consumes the wearable-tier decision without containing wearable
+  firmware.
 - The gateway retains a rolling history and survives reboot.
 - The 48-hour calibration extends automatically when coverage is insufficient.
 - The gateway model uses ordered windows and normal-only training data.
@@ -343,6 +350,8 @@ records and generated participant windows remain outside Git.
 - GalaxyPPG and synthetic data are never described as illness-validation data.
 - The service works without internet access and within measured Pi limits.
 - No SMS, cellular-network or notification-delivery code or dependency exists.
+- Prediction responses stay compact and do not repeat explanatory disclaimer
+  text.
 
 ## External inputs required for hardware completion
 
