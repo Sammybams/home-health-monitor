@@ -1,0 +1,72 @@
+{
+  "production_training_eligible": false,
+  "schema_version": 1,
+  "sources": [
+    {
+      "dataset": "supplied_monitoring_fall_csv",
+      "duplicate_rows": 576,
+      "feature_availability": {
+        "heart_rate_bpm": true,
+        "motion_intensity": true,
+        "spo2_percent": true,
+        "temperature_c": true
+      },
+      "normal_unique_rows": 11,
+      "role": "development_demo_seed_and_visual_check",
+      "rows": 612,
+      "unique_rows": 36
+    },
+    {
+      "dataset": "GalaxyPPG",
+      "feature_availability": {
+        "heart_rate_bpm": true,
+        "motion_intensity": true,
+        "spo2_percent": false,
+        "temperature_c": true
+      },
+      "heart_rate": {
+        "count": 69491,
+        "maximum": 194.0,
+        "mean": 84.61737491185909,
+        "minimum": 45.0
+      },
+      "motion": {
+        "count": 2203200,
+        "maximum": 93.54599161028679,
+        "mean": 0.8865317507098043,
+        "minimum": 1.8532967160922453e-08
+      },
+      "participants": 23,
+      "role": "engineering_reference",
+      "skin_temperature": {
+        "count": 1253,
+        "maximum": 35.5374870300293,
+        "mean": 33.538855357067355,
+        "minimum": 29.79893684387207
+      }
+    },
+    {
+      "dataset": "BIDMC_PPG_and_Respiration",
+      "feature_availability": {
+        "heart_rate_bpm": true,
+        "motion_intensity": false,
+        "spo2_percent": true,
+        "temperature_c": false
+      },
+      "heart_rate": {
+        "count": 25489,
+        "maximum": 139.0,
+        "mean": 89.18058770449998,
+        "minimum": 44.0
+      },
+      "participants": 53,
+      "role": "engineering_reference",
+      "spo2": {
+        "count": 25365,
+        "maximum": 100.0,
+        "mean": 96.72264931992903,
+        "minimum": 83.0
+      }
+    }
+  ]
+}

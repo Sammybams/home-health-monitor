@@ -1,0 +1,130 @@
+{
+  "artifact_role": "development_demo",
+  "dataset": {
+    "normal_only": true,
+    "test_subjects": [
+      "development-012",
+      "development-017",
+      "development-021",
+      "development-024",
+      "development-034",
+      "development-039",
+      "development-055",
+      "development-056",
+      "development-059"
+    ],
+    "test_windows": 36,
+    "train_subjects": [
+      "development-001",
+      "development-002",
+      "development-003",
+      "development-005",
+      "development-006",
+      "development-007",
+      "development-008",
+      "development-009",
+      "development-011",
+      "development-013",
+      "development-014",
+      "development-015",
+      "development-016",
+      "development-018",
+      "development-019",
+      "development-023",
+      "development-025",
+      "development-026",
+      "development-027",
+      "development-028",
+      "development-029",
+      "development-030",
+      "development-033",
+      "development-035",
+      "development-036",
+      "development-038",
+      "development-040",
+      "development-041",
+      "development-042",
+      "development-043",
+      "development-044",
+      "development-045",
+      "development-047",
+      "development-048",
+      "development-049",
+      "development-051",
+      "development-052",
+      "development-053",
+      "development-054",
+      "development-057",
+      "development-058",
+      "development-060"
+    ],
+    "train_windows": 168,
+    "validation_subjects": [
+      "development-004",
+      "development-010",
+      "development-020",
+      "development-022",
+      "development-031",
+      "development-032",
+      "development-037",
+      "development-046",
+      "development-050"
+    ],
+    "validation_windows": 36,
+    "windows": 240
+  },
+  "feature_manifest_id": "features-v1",
+  "input": {
+    "dtype": "int8",
+    "features": [
+      "heart_rate_bpm",
+      "spo2_percent",
+      "temperature_c",
+      "motion_intensity",
+      "quality_ppg",
+      "quality_spo2",
+      "quality_temperature",
+      "quality_motion",
+      "mask_heart_rate_bpm",
+      "mask_spo2_percent",
+      "mask_temperature_c",
+      "mask_motion_intensity",
+      "mask_quality_ppg",
+      "mask_quality_spo2",
+      "mask_quality_temperature",
+      "mask_quality_motion"
+    ],
+    "scale": 0.007656787056475878,
+    "shape": [
+      1,
+      288,
+      16
+    ],
+    "zero_point": -63
+  },
+  "metrics": {
+    "engineering_simulated_anomaly_detection_fraction": 1.0,
+    "test_false_anomaly_fraction": 0.0,
+    "test_mean_reconstruction_error": 0.01207644771784544,
+    "validation_error_p99": 0.014196240343153477
+  },
+  "model_id": "gateway-ae-5e2567209e0a",
+  "model_sha256": "31e35232f850995ec99b658603fb5c8abbd7011c091b08a7e97f73c6a09ccd50",
+  "output": {
+    "dtype": "int8",
+    "scale": 0.007656787056475878,
+    "shape": [
+      1,
+      288,
+      16
+    ],
+    "zero_point": -63
+  },
+  "schema_version": 1,
+  "thresholds": {
+    "consecutive_windows": 2,
+    "persistent_error": 0.014196240343153477,
+    "severe_error": 0.028392480686306953
+  },
+  "trained_at": "2026-09-07T22:41:53.045358+00:00"
+}
