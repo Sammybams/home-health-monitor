@@ -7,7 +7,6 @@ import json
 import math
 from pathlib import Path
 import random
-import statistics
 from typing import Iterable
 
 from ..gateway.autoencoder import FEATURE_MANIFEST_ID
@@ -84,25 +83,40 @@ def load_supplied_monitoring_rows(path: str | Path) -> tuple[SuppliedMonitoringR
     return tuple(unique)
 
 
-def _robust_scale(values: Iterable[float], minimum: float) -> float:
-    items = tuple(float(value) for value in values)
-    median = statistics.median(items)
-    mad = statistics.median(abs(value - median) for value in items)
-    return max(1.4826 * mad, minimum)
-
-
-def _normal_window(rng: random.Random, subject_id: str, phase: float) -> DevelopmentWindow:
+def _normal_window(
+    rng: random.Random,
+    subject_id: str,
+    phase: float,
+    templates: tuple[tuple[float, ...], ...],
+    template_offset: int,
+) -> DevelopmentWindow:
     values: list[tuple[float, ...]] = []
     masks: list[tuple[float, ...]] = []
     activity_start = rng.randrange(70, 190)
     activity_length = rng.randrange(8, 25)
     for step in range(STEP_COUNT):
+        template = templates[(step // 6 + template_offset) % len(templates)]
         day_angle = 2 * math.pi * step / STEP_COUNT + phase
         active = 1.0 if activity_start <= step < activity_start + activity_length else 0.0
-        motion = max(0.0, 0.16 + 0.10 * math.sin(day_angle * 3) + active * 1.15)
-        heart_rate = 0.38 * math.sin(day_angle - 0.5) + active * 1.20 + rng.gauss(0, 0.16)
-        spo2 = -0.10 * active + rng.gauss(0, 0.10)
-        temperature = 0.34 * math.sin(day_angle - 1.2) + rng.gauss(0, 0.08)
+        motion = max(
+            0.0,
+            0.16
+            + 0.10 * math.sin(day_angle * 3)
+            + active * 1.15
+            + 0.08 * template[3],
+        )
+        heart_rate = (
+            0.38 * math.sin(day_angle - 0.5)
+            + active * 1.20
+            + 0.12 * template[0]
+            + rng.gauss(0, 0.16)
+        )
+        spo2 = -0.10 * active + 0.12 * template[1] + rng.gauss(0, 0.10)
+        temperature = (
+            0.34 * math.sin(day_angle - 1.2)
+            + 0.12 * template[2]
+            + rng.gauss(0, 0.08)
+        )
         quality = tuple(max(0.72, min(1.0, rng.gauss(0.95, 0.025))) for _ in range(4))
         values.append((heart_rate, spo2, temperature, motion, *quality))
         masks.append((1.0,) * len(FEATURE_NAMES))
@@ -145,21 +159,33 @@ def build_development_corpus(
     if subject_count < 3 or windows_per_subject < 1:
         raise ValueError("development corpus needs three subjects and one window each")
 
-    # These scales record how the supplied normal rows shaped the simulation.
-    scales = (
-        _robust_scale((row.heart_rate_bpm for row in normal), 3.0),
-        _robust_scale((row.spo2_percent for row in normal), 0.5),
-        _robust_scale((row.temperature_c for row in normal), 0.1),
-        _robust_scale((row.motion_intensity for row in normal), 0.1),
+    templates = tuple(
+        (
+            max(-2.0, min(2.0, (row.heart_rate_bpm - 72.0) / 12.0)),
+            max(-2.0, min(2.0, (row.spo2_percent - 97.0) / 2.0)),
+            max(-2.0, min(2.0, (row.temperature_c - 36.8) / 0.5)),
+            max(-2.0, min(2.0, row.motion_intensity / 0.5)),
+        )
+        for row in normal
     )
-    scale_phase = sum(scales) / 100.0
+    source_phase = sum(sum(template) for template in templates) / (
+        20.0 * len(templates)
+    )
     rng = random.Random(seed)
     windows: list[DevelopmentWindow] = []
     for subject_index in range(subject_count):
         subject_id = f"development-{subject_index + 1:03d}"
-        phase = rng.uniform(-math.pi, math.pi) + scale_phase
+        phase = rng.uniform(-math.pi, math.pi) + source_phase
         for _ in range(windows_per_subject):
-            windows.append(_normal_window(rng, subject_id, phase + rng.uniform(-0.15, 0.15)))
+            windows.append(
+                _normal_window(
+                    rng,
+                    subject_id,
+                    phase + rng.uniform(-0.15, 0.15),
+                    templates,
+                    subject_index % len(templates),
+                )
+            )
     anomalies = tuple(_simulated_anomaly(window, index) for index, window in enumerate(windows))
     return DevelopmentCorpus(
         normal_windows=tuple(windows),

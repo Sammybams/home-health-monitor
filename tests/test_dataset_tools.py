@@ -142,6 +142,38 @@ class DatasetToolTests(unittest.TestCase):
 
         self.assertEqual(first, second)
 
+    def test_development_corpus_changes_when_normal_seed_values_change(self) -> None:
+        first_rows = (
+            load_supplied_monitoring_rows(
+                self._single_monitoring_csv("first.csv", [65, 98, 36.7, 9.81, "Normal"])
+            )
+        )
+        second_rows = (
+            load_supplied_monitoring_rows(
+                self._single_monitoring_csv("second.csv", [85, 96, 37.0, 10.1, "Normal"])
+            )
+        )
+
+        first = build_development_corpus(first_rows, subject_count=3, windows_per_subject=1)
+        second = build_development_corpus(second_rows, subject_count=3, windows_per_subject=1)
+
+        self.assertNotEqual(first.normal_windows, second.normal_windows)
+
+    def _single_monitoring_csv(self, name: str, row: list[object]) -> Path:
+        path = self.root / name
+        self.write_csv(
+            path,
+            [
+                "heart_rate",
+                "oxygen_level",
+                "temperature",
+                "acceleration_magnitude",
+                "health_condition",
+            ],
+            [row],
+        )
+        return path
+
     def test_development_writer_emits_loader_compatible_normal_data(self) -> None:
         path = self.root / "healthmonitoringandfalldetection.csv"
         self.write_csv(
