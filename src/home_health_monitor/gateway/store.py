@@ -233,3 +233,11 @@ class GatewayStore:
                 (cutoff.isoformat(),),
             )
         return cursor.rowcount
+
+    def delete_events_before(self, cutoff: datetime) -> int:
+        with self.connection:
+            cursor = self.connection.execute(
+                "DELETE FROM events WHERE timestamp < ?",
+                (cutoff.isoformat(),),
+            )
+        return cursor.rowcount

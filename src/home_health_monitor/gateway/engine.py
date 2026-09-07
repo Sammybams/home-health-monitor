@@ -21,6 +21,7 @@ from .windowing import build_window
 BASELINE_ANOMALY_Z = 4.0
 QUALITY_FAILURE_LEVEL = 0.5
 QUALITY_FAILURE_COUNT = 3
+RETENTION_DAYS = 30
 
 
 class AutoencoderProtocol(Protocol):
@@ -121,6 +122,9 @@ class GatewayEngine:
 
     def ingest(self, packet: FeaturePacket) -> GatewayDecision:
         self.store.add_packet(packet)
+        retention_cutoff = packet.timestamp - timedelta(days=RETENTION_DAYS)
+        self.store.delete_packets_before(retention_cutoff)
+        self.store.delete_events_before(retention_cutoff)
         profile, calibration = self._calibration(packet)
         triggered = []
         reasons = []

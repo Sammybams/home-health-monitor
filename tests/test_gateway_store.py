@@ -90,6 +90,19 @@ class GatewayStoreTests(unittest.TestCase):
         self.assertEqual(1, removed)
         self.assertEqual([2], [item.sequence for item in saved])
 
+    def test_event_retention_removes_only_old_events(self) -> None:
+        old = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        recent = datetime(2026, 2, 1, tzinfo=timezone.utc)
+        with GatewayStore(self.path) as store:
+            store.save_event("subject-1", {"decision": "normal", "id": "old"}, old)
+            store.save_event("subject-1", {"decision": "normal", "id": "recent"}, recent)
+
+            removed = store.delete_events_before(datetime(2026, 1, 15, tzinfo=timezone.utc))
+            events = store.recent_events("subject-1")
+
+        self.assertEqual(1, removed)
+        self.assertEqual(["recent"], [event["id"] for event in events])
+
 
 if __name__ == "__main__":
     unittest.main()
