@@ -108,7 +108,7 @@
     "test_mean_reconstruction_error": 0.01207644771784544,
     "validation_error_p99": 0.014196240343153477
   },
-  "model_id": "gateway-ae-5e2567209e0a",
+  "model_id": "gateway-ae-fefeb2d64aae",
   "model_sha256": "31e35232f850995ec99b658603fb5c8abbd7011c091b08a7e97f73c6a09ccd50",
   "output": {
     "dtype": "int8",
@@ -126,5 +126,5 @@
     "persistent_error": 0.014196240343153477,
     "severe_error": 0.028392480686306953
   },
-  "trained_at": "2026-09-07T22:41:53.045358+00:00"
+  "trained_at": "2026-09-07T23:16:56.762715+00:00"
 }

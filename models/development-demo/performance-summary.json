@@ -1,0 +1,52 @@
+{
+  "artifact_role": "development_demo",
+  "binary": {
+    "accuracy": 1.0,
+    "balanced_accuracy": 1.0,
+    "confusion": {
+      "fn": 0,
+      "fp": 0,
+      "tn": 36,
+      "tp": 36
+    },
+    "controlled_anomaly_windows": 36,
+    "f1": 1.0,
+    "normal_windows": 36,
+    "precision": 1.0,
+    "recall": 1.0,
+    "specificity": 1.0,
+    "threshold": 0.014196240343153477
+  },
+  "by_scenario": {
+    "sustained_high_heart_rate": {
+      "count": 9,
+      "detection_fraction": 1.0,
+      "maximum_score": 0.260860800743103,
+      "mean_score": 0.20598902139398786,
+      "minimum_score": 0.17100104689598083
+    },
+    "sustained_high_temperature": {
+      "count": 9,
+      "detection_fraction": 1.0,
+      "maximum_score": 0.38829150795936584,
+      "mean_score": 0.31937335266007316,
+      "minimum_score": 0.2719459533691406
+    },
+    "sustained_low_spo2": {
+      "count": 9,
+      "detection_fraction": 1.0,
+      "maximum_score": 0.3829469680786133,
+      "mean_score": 0.3803703950511085,
+      "minimum_score": 0.37725120782852173
+    },
+    "sustained_motion_change": {
+      "count": 9,
+      "detection_fraction": 1.0,
+      "maximum_score": 0.4365048408508301,
+      "mean_score": 0.40379077196121216,
+      "minimum_score": 0.31538310647010803
+    }
+  },
+  "evaluation_scope": "held_out_generated_normal_vs_controlled_simulation",
+  "model_id": "gateway-ae-fefeb2d64aae"
+}
