@@ -22,6 +22,7 @@ home-health-monitor = "home_health_monitor.__main__:main"
 home-health-baseline = "home_health_monitor.baseline_cli:main"
 home-health-train = "home_health_monitor.training:main"
 home-health-gateway-train = "home_health_monitor.gateway.training:main"
+home-health-dataset-audit = "home_health_monitor.datasets.audit:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
