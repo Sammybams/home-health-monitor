@@ -6,6 +6,9 @@ __pycache__/
 artifacts/**
 !artifacts/.gitkeep
 data/
+!notebooks/data/
+!notebooks/data/supplied-monitoring.csv
+notebooks/.work/
 *.db
 *.db-shm
 *.db-wal
