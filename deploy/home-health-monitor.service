@@ -12,7 +12,7 @@ Environment=PYTHONPATH=/opt/home-health-monitor/src
 Environment=PYTHONDONTWRITEBYTECODE=1
 Environment=PYTHONUNBUFFERED=1
 StateDirectory=home-health-monitor
-ExecStart=/usr/bin/python3 -m home_health_monitor --host 127.0.0.1 --port 8080 --database /var/lib/home-health-monitor/gateway.db --model /opt/home-health-monitor/artifacts/gateway/model.tflite --model-metadata /opt/home-health-monitor/artifacts/gateway/model-metadata.json
+ExecStart=/opt/home-health-monitor/.venv/bin/python -m home_health_monitor --host 127.0.0.1 --port 8080 --database /var/lib/home-health-monitor/gateway.db --model /opt/home-health-monitor/artifacts/gateway/model.tflite --model-metadata /opt/home-health-monitor/artifacts/gateway/model-metadata.json
 Restart=on-failure
 RestartSec=5
 UMask=0077

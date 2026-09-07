@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "subject_id": "subject-1",
+  "device_id": "wearable-1",
+  "sequence": 42,
+  "timestamp": "2026-09-07T20:00:00Z",
+  "sample_duration_seconds": 3.0,
+  "firmware_version": "1.0.0",
+  "sensor_config_id": "sensor-set-a",
+  "feature_manifest_id": "features-v1",
+  "heart_rate_bpm": 71.5,
+  "spo2_percent": 97.2,
+  "temperature_c": 33.8,
+  "temperature_type": "skin",
+  "temperature_site": "wrist",
+  "motion_intensity": 0.14,
+  "motion": 0,
+  "quality": {
+    "ppg": 0.96,
+    "spo2": 0.94,
+    "temperature": 1.0,
+    "motion": 0.99
+  },
+  "wearable": {
+    "decision": "normal",
+    "score": 0.42,
+    "deviations": {
+      "heart_rate_bpm": 0.42,
+      "spo2_percent": -0.2,
+      "temperature_c": 0.1,
+      "motion_intensity": 0.05
+    },
+    "reason_codes": []
+  }
+}

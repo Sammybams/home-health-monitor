@@ -1,86 +1,44 @@
-# Raspberry Pi deployment guide
+# Raspberry Pi home-gateway deployment
 
-This guide explains how the original Home Health Monitor idea fits together and
-how to run the implemented service on a 512 MB or 1 GB Raspberry Pi.
+This guide deploys only the home gateway. The separate wearable samples its
+sensors, derives heart rate, performs its immediate check, and transmits a BLE
+feature packet. A hardware BLE bridge converts that packet to the documented
+local JSON request. This repository does not implement the wearable or SMS.
 
-## What runs where
+## Runtime layout
 
-```mermaid
-flowchart LR
-    Sensors[Temperature, heart-rate and motion sensors] --> Collector[Hardware-specific collector]
-    Collector --> Window[Latest 24-hour JSON window]
-    Healthy[7-30 known healthy days] --> Builder[Baseline builder]
-    Builder --> Profile[Small personal baseline JSON]
-    Profile --> Collector
-    Window --> API[Home Health Monitor on the Pi]
-    API --> Features[Validation and summaries]
-    Features --> Provisional[Always-available trend prediction]
-    Features --> Model[Optional trained model]
-    Provisional --> Result[Current and 24-hour future risk JSON]
-    Model --> Result
-    Training[Training computer] --> Artifact[model.json]
-    Artifact --> Model
+```text
+wearable --BLE--> hardware bridge --HTTP localhost--> gateway service
+                                                     |-- SQLite history/profile
+                                                     |-- int8 model (optional)
+                                                     `-- normal/anomaly JSON
 ```
 
-The Raspberry Pi service implemented in this repository starts at the `API`
-box. It accepts JSON, validates it, calculates features and returns predictions.
+The database survives service restart and reboot. Calibration resumes from
+stored packets/profile. The service automatically removes packet and event
+history older than 30 days.
 
-What this repository deploys:
+## Operating-system recommendation
 
-- the lightweight standard-library JSON server, without FastAPI;
-- input validation and 1-, 6- and 24-hour summaries;
-- first-day and personal-baseline predictions;
-- optional trained-model inference;
-- the baseline builder and Linux service configuration.
+Use a clean 64-bit Raspberry Pi OS Lite image on the Pi Zero 2 W. A Bookworm
+image with Python 3.11 is a conservative runtime choice for current lightweight
+TFLite wheels. Disable the desktop and unrelated services to preserve memory.
 
-What remains hardware- or product-specific:
+Raspberry Pi OS Bookworm and newer require `pip` packages to be installed in a
+virtual environment; the included unit therefore runs
+`/opt/home-health-monitor/.venv/bin/python`. See Raspberry Pi's official
+[Python package guidance](https://www.raspberrypi.com/documentation/computers/os.html#use-python-on-a-raspberry-pi).
 
-- sensor drivers and the collector process;
-- the screen, mobile application or upstream controller that displays results;
-- an authenticated HTTPS gateway if requests must leave the Pi;
-- the final trained and clinically evaluated illness model.
-
-The hardware-specific collector is a separate integration component. It must:
-
-1. read the actual sensors using their supported GPIO, I2C, serial or Bluetooth
-   libraries;
-2. convert readings to the API names and units;
-3. retain or assemble the latest 24-hour window;
-4. add the person's small baseline object when one exists;
-5. send the request to `http://127.0.0.1:8080/v1/predict`;
-6. deliver the returned JSON to the display, controller or upstream system.
-
-That collector cannot be completed correctly until the exact sensor models and
-communication protocols are known. It should run on the same Pi so the
-prediction service can remain private on `127.0.0.1`.
-
-## Prediction behavior on the Pi
-
-The service always returns current and future classifications:
-
-- On the first valid day, `within_day_trend` compares the later readings with
-  the earlier readings. Confidence is low.
-- After attaching a 7–30 day baseline, `personal_baseline_trend` compares the
-  person with their own normal state. Confidence is moderate.
-- After installing a trained `model.json`, `trained_logistic_model` replaces the
-  provisional risk calculation with model probabilities.
-
-The personal change assessment remains available even when a trained model is
-installed.
-
-## Recommended Pi setup
-
-Use Raspberry Pi OS Lite Bookworm or newer without a desktop. Python 3.10 or
-newer is required. The inference service has no third-party Python dependencies.
-
-On the Pi:
+## 1. Install system packages
 
 ```sh
 sudo apt update
-sudo apt install --no-install-recommends python3 ca-certificates git curl
+sudo apt full-upgrade
+sudo apt install --no-install-recommends \
+  python3 python3-venv ca-certificates git curl
 ```
 
-Create a non-login service account:
+Create the non-login account used by `systemd`:
 
 ```sh
 sudo adduser --system \
@@ -90,23 +48,28 @@ sudo adduser --system \
   home-health
 ```
 
-This creates both the `home-health` user and the matching group required by the
-systemd unit. If the account already exists, verify both entries with
-`id home-health`.
-
-## Install the application
-
-Clone the repository into its fixed service path:
+## 2. Install the repository and runtime
 
 ```sh
 sudo git clone https://github.com/Sammybams/home-health-monitor.git \
   /opt/home-health-monitor
+sudo python3 -m venv /opt/home-health-monitor/.venv
+sudo /opt/home-health-monitor/.venv/bin/python -m pip install --upgrade pip
+sudo /opt/home-health-monitor/.venv/bin/python -m pip install \
+  -e '/opt/home-health-monitor[gateway]' tflite-runtime
+
 sudo chown -R root:home-health /opt/home-health-monitor
 sudo chmod -R o-rwx /opt/home-health-monitor
 sudo chmod -R g+rX /opt/home-health-monitor
 ```
 
-Install the service definition:
+The gateway tries the lightweight `tflite_runtime` interpreter first and full
+TensorFlow second. Full TensorFlow should not be installed on the 512 MB Pi. If
+the correct interpreter wheel is unavailable for the chosen OS/Python build,
+leave the model absent and verify fallback operation, then select a compatible
+64-bit OS/Python image or build the lightweight runtime for that image.
+
+## 3. Install and start the service
 
 ```sh
 sudo install -o root -g root -m 0644 \
@@ -116,188 +79,153 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now home-health-monitor
 ```
 
-The service:
+The unit:
 
-- runs as the unprivileged `home-health` account;
-- starts automatically after boot;
-- restarts after unexpected failure;
-- binds only to `127.0.0.1:8080`;
-- uses a 64 MB process memory ceiling;
-- sees the operating-system filesystem as read-only;
-- does not require NumPy, pandas, scikit-learn or FastAPI.
+- runs as `home-health`, not root;
+- listens only on `127.0.0.1:8080`;
+- creates `/var/lib/home-health-monitor` through `StateDirectory`;
+- stores SQLite at `/var/lib/home-health-monitor/gateway.db`;
+- restarts on failure and starts after boot;
+- uses a 96 MiB memory ceiling;
+- applies read-only filesystem and privilege restrictions.
 
-The 64 MB ceiling is a starting configuration. Confirm actual memory and latency
-on the exact 512 MB Pi and OS image before field deployment.
+## 4. Verify fallback operation
 
-Inspect live resource usage with:
-
-```sh
-systemctl show home-health-monitor \
-  -p MemoryCurrent -p MemoryMax -p TasksCurrent
-```
-
-## Verify the installation
-
-Check the Linux service:
+The first deployment should work before a model is copied:
 
 ```sh
 sudo systemctl status home-health-monitor --no-pager
-```
-
-Check its API:
-
-```sh
 curl -sS http://127.0.0.1:8080/health
 ```
 
-A working installation without a trained model returns HTTP 200 with:
+Expected essentials:
 
 ```json
-{
-  "status": "ready",
-  "change_assessment_available": true,
-  "illness_model_loaded": false
-}
+{"status":"ready","database":"ready","model_loaded":false}
 ```
 
-Send the repository's first-day example:
+Send a packet:
 
 ```sh
-sudo -u home-health curl -sS -X POST http://127.0.0.1:8080/v1/predict \
+curl -sS -X POST http://127.0.0.1:8080/v2/packets \
   -H 'Content-Type: application/json' \
-  --data-binary @/opt/home-health-monitor/examples/request.json
+  --data-binary @/opt/home-health-monitor/examples/packet.json
 ```
 
-The response contains both current and future provisional predictions even
-though no baseline or trained model is installed.
+It must return `decision: normal` or `decision: anomaly` even with
+`model_loaded: false`.
 
-The command uses the service account because the recommended permissions
-intentionally prevent ordinary login users from reading application files under
-`/opt/home-health-monitor`.
-
-## Create and use a personal baseline
-
-The collector should save 7–30 known healthy daily windows as JSON Lines. Keep
-health data outside the application repository, for example:
+Repeat the same request. The `(device_id, sequence)` packet is stored only once,
+although the caller still receives a prediction. Confirm the latest result:
 
 ```sh
-sudo install -d -o home-health -g home-health -m 0700 \
-  /var/lib/home-health-monitor
+curl -sS \
+  'http://127.0.0.1:8080/v2/prediction?subject_id=subject-1'
+curl -sS \
+  'http://127.0.0.1:8080/v2/calibration?subject_id=subject-1'
 ```
 
-Build the profile:
+## 5. Connect the BLE bridge
+
+The bridge runs on the gateway side or as an adjacent trusted process. For every
+received BLE feature packet it should:
+
+1. verify the BLE characteristic length/version;
+2. map the payload exactly to the [v2 packet contract](api.md);
+3. preserve device sequence and UTC timestamp;
+4. POST once to `http://127.0.0.1:8080/v2/packets`;
+5. keep/retry a packet locally if the gateway process is restarting;
+6. pass the returned binary result to the local consumer chosen by the wider
+   system.
+
+Do not expose the gateway HTTP port on the LAN. BLE pairing, characteristic
+UUIDs, byte encoding, and retry storage belong to the hardware integration
+repository because they depend on the wearable firmware contract.
+
+## 6. Let calibration complete
+
+Calibration becomes ready after all of the following are present in SQLite:
+
+- a 48-hour elapsed span;
+- 80% valid one-minute coverage;
+- eight hours of valid low-motion readings.
+
+Check progress using `/v2/calibration`. Restart and reboot during a test to
+confirm progress survives. Once ready, verify that a deliberately constructed
+large personal deviation triggers `gateway_baseline` in a controlled test.
+
+## 7. Install a trained model
+
+Train and select both artifacts off-device. Copy them to a temporary location:
 
 ```sh
-sudo -u home-health env PYTHONPATH=/opt/home-health-monitor/src \
-  /usr/bin/python3 -m home_health_monitor.baseline_cli \
-  /var/lib/home-health-monitor/healthy-days.jsonl \
-  /var/lib/home-health-monitor/baseline.json
+scp artifacts/gateway/model.tflite pi@PI_ADDRESS:/tmp/model.tflite
+scp artifacts/gateway/model-metadata.json \
+  pi@PI_ADDRESS:/tmp/model-metadata.json
 ```
 
-The service is stateless: it does not search the filesystem for this profile.
-The collector reads `baseline.json` and inserts the object into the `baseline`
-field of each prediction request. This makes subject ownership explicit and
-keeps the inference server simple.
-
-## Install a trained model later
-
-Training happens on a development computer, not on the Pi. Copy the exported
-artifact to the Pi's temporary directory, then install it with controlled
-ownership and permissions:
+Install atomically controlled files and restart:
 
 ```sh
-scp artifacts/model.json pi@PI_ADDRESS:/tmp/home-health-model.json
-ssh pi@PI_ADDRESS sudo install -o root -g home-health -m 0640 \
-  /tmp/home-health-model.json \
-  /opt/home-health-monitor/artifacts/model.json
-ssh pi@PI_ADDRESS sudo systemctl restart home-health-monitor
+ssh pi@PI_ADDRESS 'sudo install -d -o root -g home-health -m 0750 \
+  /opt/home-health-monitor/artifacts/gateway'
+ssh pi@PI_ADDRESS 'sudo install -o root -g home-health -m 0640 \
+  /tmp/model.tflite /opt/home-health-monitor/artifacts/gateway/model.tflite'
+ssh pi@PI_ADDRESS 'sudo install -o root -g home-health -m 0640 \
+  /tmp/model-metadata.json \
+  /opt/home-health-monitor/artifacts/gateway/model-metadata.json'
+ssh pi@PI_ADDRESS 'sudo systemctl restart home-health-monitor'
 ```
 
-Replace `PI_ADDRESS` and the SSH username when needed. Call `/health` again and
-confirm `illness_model_loaded` is `true` before relying on model output.
+Call `/health` and require `model_loaded: true`. A feature-manifest, checksum,
+shape, or quantization mismatch keeps it false while fallback predictions remain
+available.
 
-## Logs and troubleshooting
+## 8. Measure the release gates on the Pi
 
-View recent logs:
+Check memory:
+
+```sh
+systemctl show home-health-monitor \
+  -p MemoryCurrent -p MemoryPeak -p MemoryMax -p TasksCurrent
+```
+
+Measure repeated packet requests containing a full preceding 24-hour history in
+SQLite. Record median and worst-case request time. Release targets are:
+
+```text
+model.tflite < 1 MiB
+service peak RSS < 96 MiB
+one complete inference < 2 seconds
+```
+
+Also test missing model, corrupted metadata, duplicate packet, low-quality
+packet streak, reboot during calibration, completed calibration, two persistent
+model errors, and one severe model error.
+
+## Logs and updates
 
 ```sh
 sudo journalctl -u home-health-monitor -n 100 --no-pager
-```
-
-Follow live logs:
-
-```sh
 sudo journalctl -u home-health-monitor -f
 ```
 
-Restart after changing the model or service configuration:
-
-```sh
-sudo systemctl restart home-health-monitor
-```
-
-Common checks:
-
-- `connection refused`: confirm the service is active and listening on port
-  8080;
-- HTTP 422: inspect the input names, units, timestamps and subject/baseline IDs;
-- `illness_model_loaded: false`: the service still predicts provisionally;
-- systemd memory termination: inspect the logs and measure memory on the actual
-  Pi before raising `MemoryMax` carefully.
-
-Raw health request bodies are not written to service logs.
-
-## Updates
-
-Apply code updates explicitly and restart only after tests pass:
+Update only through a reviewed commit, then test and restart:
 
 ```sh
 sudo git -C /opt/home-health-monitor pull --ff-only origin main
-sudo -u home-health env PYTHONDONTWRITEBYTECODE=1 \
+sudo -u home-health env \
+  PYTHONDONTWRITEBYTECODE=1 \
   PYTHONPATH=/opt/home-health-monitor/src \
-  /usr/bin/python3 -m unittest discover \
+  /opt/home-health-monitor/.venv/bin/python -m unittest discover \
   -s /opt/home-health-monitor/tests -v
 sudo systemctl restart home-health-monitor
 curl -sS http://127.0.0.1:8080/health
 ```
 
-For controlled deployments, record the deployed Git commit with:
-
-```sh
-sudo git -C /opt/home-health-monitor rev-parse HEAD
-```
-
-After initial installation or an update, reboot once and confirm the service
-starts without an SSH session:
+After initial installation and every service-unit change, reboot once and
+confirm the API returns without an SSH session:
 
 ```sh
 sudo reboot
 ```
-
-After reconnecting, call `/health` and send the example request again. Also test
-with the internet disconnected; local sensor-to-prediction operation does not
-require internet access.
-
-## Network and privacy boundary
-
-Do not change the service to `0.0.0.0` merely to make it reachable from another
-computer. If remote access is required, place an authenticated HTTPS gateway in
-front of it and define retention and access policies for the health data. The
-default localhost-only deployment is the safest fit for the original Pi plan.
-
-## Deployment responsibility summary
-
-| Component | Status | Location |
-| --- | --- | --- |
-| JSON validation and feature extraction | Implemented | Pi prediction service |
-| First-day current and future prediction | Implemented | Pi prediction service |
-| Personal baseline builder and prediction | Implemented | Pi or preparation computer |
-| Optional trained-model inference | Implemented; model artifact pending | Pi prediction service |
-| Physical sensor drivers | Pending exact sensor models | Pi collector |
-| Rolling 24-hour sensor buffer | Pending collector integration | Pi collector |
-| Display, mobile application or remote gateway | Pending product choice | Pi or external device |
-| Validated illness model | Pending labelled target-device data | Trained away from Pi |
-
-This matches the initial plan: the lightweight AI and JSON service run on the
-Pi, while the collector plugs in once the exact body-temperature,
-ambient-temperature, heart-rate and motion hardware is known.

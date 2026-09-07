@@ -1,168 +1,140 @@
-# Simple API guide
+# Gateway JSON API
 
-The service uses JSON over HTTP. It has no login or encryption of its own, so it
-should normally listen only on the Raspberry Pi at `127.0.0.1`.
+The service listens on `127.0.0.1:8080` by default. The hardware-specific BLE
+bridge posts one already-filtered wearable feature packet after each 2-5 second
+sampling cycle.
 
-## Check the service
+## POST `/v2/packets`
 
-Send:
+Send `Content-Type: application/json`. A complete example is in
+[`examples/packet.json`](../examples/packet.json).
 
-```text
-GET /health
+### Required packet fields
+
+| Field | Meaning |
+| --- | --- |
+| `schema_version` | Must be `1`. |
+| `subject_id` | Private person identifier. |
+| `device_id` | Wearable identifier. |
+| `sequence` | Non-negative device packet counter. `(device_id, sequence)` is unique. |
+| `timestamp` | ISO-8601 time with timezone; stored as UTC. |
+| `sample_duration_seconds` | Wearable awake/sample period from `2` through `5`. |
+| `firmware_version` | Wearable firmware identity. |
+| `sensor_config_id` | Exact sensor/placement configuration identity. |
+| `feature_manifest_id` | Must match the installed model; current value is `features-v1`. |
+| `heart_rate_bpm` | Heart rate derived by the wearable from its optical signal. |
+| `spo2_percent` | Blood oxygen saturation. |
+| `temperature_c` | Body/skin/surface temperature in Celsius. |
+| `temperature_type` | `skin`, `core`, or `surface`. |
+| `temperature_site` | Measurement position, such as `wrist`. |
+| `motion_intensity` | Non-negative accelerometer-derived motion magnitude. |
+| `motion` | `0` for no detected motion or `1` for motion. |
+| `quality` | `ppg`, `spo2`, `temperature`, and `motion` values from `0` to `1`. |
+| `wearable` | Immediate wearable assessment described below. |
+
+The wearable object is:
+
+```json
+{
+  "decision": "normal",
+  "score": 0.42,
+  "deviations": {
+    "heart_rate_bpm": 0.42,
+    "spo2_percent": -0.2,
+    "temperature_c": 0.1,
+    "motion_intensity": 0.05
+  },
+  "reason_codes": []
+}
 ```
 
-The endpoint returns HTTP 200 when the service is running:
+`decision` is `normal` or `anomaly`. An anomaly requires at least one reason
+code. Deviations are the signed robust z-scores calculated by the wearable.
+Unknown fields are rejected so accidental additions do not silently change the
+model contract.
+
+### Successful response
+
+Every accepted packet returns HTTP 200 and a binary decision:
+
+```json
+{
+  "decision": "anomaly",
+  "triggered_by": ["gateway_baseline"],
+  "reason_codes": ["spo2_percent_personal_deviation"],
+  "scores": {
+    "wearable": 0.8,
+    "gateway_baseline_max_abs_z": 5.2,
+    "gateway_model_error": 0.13
+  },
+  "contributing_signals": ["spo2_percent"],
+  "measurements": {
+    "heart_rate_bpm": 92,
+    "spo2_percent": 91.5,
+    "temperature_c": 34.1,
+    "motion": 0
+  },
+  "calibration": {
+    "status": "ready",
+    "hours": 48.0
+  },
+  "timestamp": "2026-09-07T20:00:00Z"
+}
+```
+
+`triggered_by` can contain:
+
+- `wearable` — the wearable's immediate check flagged the packet;
+- `gateway_baseline` — a current value is at least four robust personal scale
+  units from baseline;
+- `gateway_autoencoder` — the 24-hour reconstruction error is severe once or
+  above threshold for two consecutive windows;
+- `data_quality` — the same sensor quality remained below `0.5` for three
+  recent packets.
+
+During calibration, a normal result still has `decision: normal` and
+`calibration.status: collecting`. After 48 elapsed hours, at least 80% valid
+coverage, and eight low-motion hours, status becomes `ready`.
+
+## GET `/v2/prediction?subject_id=...`
+
+Returns the latest stored prediction for the subject. A missing `subject_id`
+returns HTTP 400. A subject with no prediction returns HTTP 404.
+
+## GET `/v2/calibration?subject_id=...`
+
+Returns the calibration summary attached to the subject's latest prediction:
+
+```json
+{"status":"collecting","hours":12.0,"coverage":0.91}
+```
+
+or:
+
+```json
+{"status":"ready","hours":48.0}
+```
+
+## GET `/health`
 
 ```json
 {
   "status": "ready",
-  "change_assessment_available": true,
-  "illness_model_loaded": false,
-  "illness_model_reason": "could not load model: ..."
+  "database": "ready",
+  "model_loaded": false,
+  "model_reason": "could not load autoencoder artifact: ..."
 }
 ```
 
-`illness_model_loaded: false` does not stop personal change detection.
+`model_loaded: false` does not disable predictions. Wearable, quality, and
+personal-baseline logic continue to run.
 
-## Request a prediction
+## HTTP errors
 
-Send:
+- `400` — malformed JSON length or missing query subject;
+- `404` — unknown endpoint or no stored prediction;
+- `413` — body is empty or exceeds the configured limit (64 KiB by default);
+- `415` — content type is not JSON;
+- `422` — packet fields, units, ranges, identifiers, or versions are invalid.
 
-```text
-POST /v1/predict
-Content-Type: application/json
-```
-
-The body contains:
-
-```json
-{
-  "subject_id": "private-person-id",
-  "baseline": {
-    "schema_version": 1,
-    "subject_id": "private-person-id",
-    "created_at": "2026-08-01T08:00:00Z",
-    "healthy_days": 7,
-    "sample_count": 10080,
-    "signals": {
-      "resting_body_temperature_c": {"median": 36.6, "mad_scale": 0.12},
-      "resting_heart_rate_bpm": {"median": 70, "mad_scale": 3.5},
-      "resting_body_ambient_delta_c": {"median": 9.4, "mad_scale": 0.3},
-      "daily_motion_fraction": {"median": 0.4, "mad_scale": 0.08}
-    }
-  },
-  "observations": [
-    {
-      "timestamp": "2026-08-01T08:00:00Z",
-      "body_temperature_c": 36.7,
-      "ambient_temperature_c": 27.1,
-      "heart_rate_bpm": 72,
-      "motion": 0,
-      "resting": true
-    }
-  ]
-}
-```
-
-The example shows only one observation to keep it readable. A real request must
-contain 12–10,000 chronological observations spanning at least 30 minutes.
-
-Required observation fields are:
-
-- `timestamp`, including its timezone;
-- `body_temperature_c`;
-- `ambient_temperature_c`;
-- `heart_rate_bpm`;
-- `motion`, either `0` or `1`.
-
-`resting` is optional and accepts `true`, `false`, `0` or `1`. An explicit value
-is preferred when the collector knows whether the person is resting or asleep.
-
-The baseline is optional. Without it, the service still predicts from changes
-inside the submitted day, while the separate personal-change result is
-`insufficient_data`. Never attach one person's baseline to another person's
-request; the service checks the IDs and rejects a mismatch.
-
-## Response without an illness model
-
-Shortened example, with individual signal details omitted:
-
-```json
-{
-  "change_assessment": {
-    "status": "within_personal_baseline",
-    "score": 1.2,
-    "threshold": 3.5,
-    "resting_window_hours": 6,
-    "resting_sample_count": 120,
-    "signals": {},
-    "interpretation": "No configured measurement changed substantially from this person's healthy baseline.",
-    "disclaimer": "Change detection only; this score is not an illness probability or diagnosis."
-  },
-  "prediction": {
-    "method": "personal_baseline_trend",
-    "confidence": "moderate",
-    "calibration_status": "not_applicable_uncalibrated_score",
-    "current_risk": {
-      "classification": "lower_risk",
-      "score": 0.17,
-      "score_type": "uncalibrated_risk_score",
-      "deviation": 1.2,
-      "threshold": 3.5
-    },
-    "future_risk": {
-      "classification": "higher_risk",
-      "score": 0.58,
-      "score_type": "uncalibrated_risk_score",
-      "deviation": 4.1,
-      "horizon_hours": 24,
-      "trend_projection_hours": 6,
-      "threshold": 3.5
-    }
-  },
-  "model": {
-    "status": "not_loaded",
-    "reason": "could not load model: ..."
-  },
-  "data_quality": {
-    "warnings": []
-  }
-}
-```
-
-The provisional score is based on the largest robust difference among resting
-body temperature, resting heart rate, body-versus-room temperature and daily
-movement. A deviation at or above `3.5` produces `higher_risk` and also produces
-`unusual_change` when a personal baseline is available. This is a conservative
-technical starting threshold, not a medical emergency limit.
-
-Every successful request contains both risk classifications. Check `method` and
-`score_type` before interpreting the number:
-
-- `within_day_trend` uses only the submitted day, has low confidence and returns
-  an uncalibrated score;
-- `personal_baseline_trend` uses the person's healthy profile, has moderate
-  confidence and returns an uncalibrated score;
-- `trained_logistic_model` returns a model probability. Its calibration status
-  remains `not_verified` until the model has passed deployment validation.
-
-If fewer than 12 resting readings exist in the latest six hours, the service
-uses the full submitted history and adds a warning. If the full history still
-has fewer than 12, the separate `change_assessment` returns
-`insufficient_data`; current and future predictions are still returned.
-
-## Response with a validated illness model
-
-When `artifacts/model.json` is installed, the provisional prediction is replaced
-by separate model probabilities for current and future risk. The personal
-`change_assessment` remains present. Only a model validated with real illness
-labels should be installed.
-
-## Common errors
-
-- HTTP 400: malformed JSON or content length
-- HTTP 413: request larger than the configured limit
-- HTTP 415: content type is not JSON
-- HTTP 422: missing, unknown, out-of-range or inconsistent input
-
-Raw request bodies are not written to application logs.
+The server logs request metadata, not raw request bodies.

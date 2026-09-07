@@ -2,5 +2,10 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .venv/
-artifacts/*.json
+artifacts/**
+!artifacts/.gitkeep
 data/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite3

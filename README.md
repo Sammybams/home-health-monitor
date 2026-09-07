@@ -1,230 +1,155 @@
 # Home Health Monitor
 
-This project is a small health-risk screening service designed to run on a
-Raspberry Pi with only 512 MB or 1 GB of memory.
-
-It is important to understand what that means: the service can look for changes
-and learned patterns, but it is **not a doctor**, it does not diagnose illness,
-and it must not replace emergency or professional medical care.
-
-## What it receives
-
-The service receives a JSON list containing roughly one day of readings:
-
-- body temperature;
-- room or ambient temperature;
-- heart rate;
-- whether the person was moving;
-- optionally, whether the reading was taken while resting or sleeping;
-- the time of every reading.
-
-A reading looks like this:
+This repository implements the **home gateway** for a two-tier wearable anomaly
+monitor. It is designed for a 512 MB Raspberry Pi Zero 2 W and returns one
+binary result for every valid sensor packet:
 
 ```json
-{
-  "timestamp": "2026-07-31T08:00:00Z",
-  "body_temperature_c": 36.7,
-  "ambient_temperature_c": 27.1,
-  "heart_rate_bpm": 72,
-  "motion": 1,
-  "resting": false
-}
+{"decision":"normal"}
 ```
 
-`motion` is `1` when motion was detected and `0` when it was not. `resting` is
-optional. When it is missing, the service treats `motion: 0` as the best
-available resting signal.
+or:
 
-## What it returns
-
-The service always returns:
-
-- a current lower-risk or higher-risk prediction;
-- a future lower-risk or higher-risk prediction for the next 24 hours;
-- whether the latest readings are within the person's baseline;
-- whether one or more measurements changed unusually;
-- which measurements changed and in which direction;
-- warnings when the submitted history is incomplete.
-
-Without a trained model, these are provisional screening predictions based on
-change and recent direction. Their scores are not illness probabilities. After
-a separately validated illness model has been installed, the same fields use
-that model and include its estimated probabilities and identity.
-
-The response deliberately uses `within_personal_baseline`, `unusual_change`,
-`lower_risk` or `higher_risk`. It does not say that somebody is definitely
-healthy or sick.
-
-## What happens inside
-
-The Pi does five small jobs:
-
-1. It checks that the JSON and sensor readings make sense.
-2. It summarises the last 1, 6, and 24 hours.
-3. It compares resting readings with a small personal baseline profile.
-4. If installed, it also gives the summaries to a tiny illness-risk model.
-5. It returns the results as JSON.
-
-The summaries include average, minimum, maximum, variation and direction of
-change. The service also measures activity, missing time intervals and the
-difference between body and room temperature.
-
-The Pi only performs predictions. Model training happens on a more powerful
-development computer and creates a small `model.json` file for the Pi. This is
-why the Pi does not need NumPy, pandas, scikit-learn, FastAPI or a deep-learning
-framework.
-
-## What is already implemented
-
-- JSON validation and useful error responses
-- Fixed limits to protect the Pi's memory
-- One-, six-, and 24-hour feature calculation
-- Creation of a robust profile from 7–30 healthy days
-- Personalized resting temperature, heart-rate and activity comparison
-- A change assessment that works without an illness model
-- Current and 24-hour future screening predictions on every valid request
-- A very small model runner with no external runtime dependencies
-- Separate current-risk and future-risk predictions
-- A `/health` readiness endpoint
-- A `/v1/predict` prediction endpoint
-- Offline model-training and export code
-- A Raspberry Pi `systemd` service definition
-- Automated tests
-
-The repository intentionally contains no made-up illness model. Without
-`artifacts/model.json`, the service uses one of two transparent provisional
-methods:
-
-- `within_day_trend` compares the latest part of the submitted day with its
-  earlier part and reports low confidence;
-- `personal_baseline_trend` compares with 7–30 healthy days and reports moderate
-  confidence.
-
-Both always return current and future classifications plus an uncalibrated risk
-score. This keeps the product functional without presenting a formula as a
-medically tested probability.
-
-| Method | Available when | Output number | Confidence |
-| --- | --- | --- | --- |
-| `within_day_trend` | First valid day, without a baseline | Uncalibrated score | Low |
-| `personal_baseline_trend` | A 7–30 day baseline is attached | Uncalibrated score | Moderate |
-| `trained_logistic_model` | A trained artifact is installed | Model probability | Model-specific |
-
-All three methods return current and 24-hour future classifications. The
-trained artifact can declare a different future horizon when the final product
-target is defined.
-
-## Building a person's baseline
-
-First collect 7–30 days that are believed to represent the person's ordinary,
-healthy state. Store one request-shaped JSON object per line in a JSON Lines
-file. Every line must use the same private `subject_id`, span at least six hours
-and contain at least 12 resting samples.
-
-Build the small profile:
-
-```sh
-PYTHONPATH=src python3 -m home_health_monitor.baseline_cli \
-  data/healthy-days.jsonl \
-  data/person-baseline.json
+```json
+{"decision":"anomaly"}
 ```
 
-The baseline stores only four robust summaries, not all of the old readings.
-The collector adds this small object under the `baseline` field of each future
-prediction request. Its `subject_id` must match the request. An illustrative
-profile is available at [`examples/baseline.json`](examples/baseline.json).
+The result means that the measurements either match or depart from this
+person's learned pattern. The model does not predict a named disease.
 
-## Running the service
+## How the complete system fits together
 
-Python 3.10 or newer is required. Prediction has no third-party dependencies.
+```mermaid
+flowchart LR
+    S[Wearable sensors] --> F[2-5 second sampling and filtering]
+    F --> W[Wearable immediate z-score check]
+    F --> B[BLE feature packet]
+    B --> J[Hardware BLE-to-JSON bridge]
+    J --> G[This home gateway]
+    G --> D[(SQLite, 30-day retention)]
+    G --> P[48-hour personal baseline]
+    G --> A[24-hour int8 autoencoder]
+    W --> O[Binary OR decision]
+    P --> O
+    A --> O
+```
+
+The physical wearable and its BLE firmware are outside this repository. The
+gateway begins at the JSON packet boundary. It contains no SMS sender or other
+outbound notification component.
+
+The wearable measures three sensor modalities: optical PPG/SpO2, temperature,
+and motion. It derives heart rate from the optical signal. The gateway packet
+therefore contains four model values:
+
+- derived heart rate;
+- blood oxygen saturation (SpO2);
+- body/skin temperature;
+- motion intensity and a binary motion state.
+
+Each value also has a quality score. The packet carries the wearable's own
+immediate `normal` or `anomaly` result.
+
+## What is implemented
+
+- strict versioned packet validation;
+- duplicate protection using device ID and sequence number;
+- persistent SQLite packet, calibration, and prediction storage;
+- automatic deletion of packet and event history older than 30 days;
+- a 48-hour personal calibration using robust median/MAD statistics;
+- 24-hour model windows: 288 ordered five-minute bins;
+- explicit quality and missing-data inputs with no forward filling;
+- a small normal-only Conv1D autoencoder trainer;
+- fully integer-quantized TFLite model export and checksum validation;
+- model persistence: two high-error windows, or one severe window;
+- an always-available binary fallback when no model is installed;
+- a dependency-light local HTTP JSON service;
+- a hardened Raspberry Pi `systemd` unit;
+- GalaxyPPG and supplied-synthetic-data audit tools;
+- automated tests for the gateway, model contract, training input, and API.
+
+## Prediction order
+
+The final rule is:
+
+```text
+anomaly = wearable anomaly
+       OR gateway personal-baseline anomaly
+       OR gateway autoencoder anomaly
+       OR persistent sensor-quality failure
+```
+
+There is always a result. During the first 48 hours, before the personal
+baseline is ready, the gateway still returns the wearable result and checks for
+persistent sensor failures. If neither is abnormal, the result is `normal`.
+When calibration completes, the personal comparison becomes active. If a valid
+model artifact is present, the long-term 24-hour pattern check also becomes
+active. If the model is absent or cannot load, the other checks continue.
+
+## Run locally
+
+Python 3.10 or newer is required. The fallback gateway has no third-party
+runtime dependency:
 
 ```sh
 PYTHONPATH=src python3 -m home_health_monitor \
   --host 127.0.0.1 \
   --port 8080 \
-  --model artifacts/model.json
+  --database data/gateway.db
 ```
 
-Check whether the service and optional illness model are ready:
+In another terminal:
 
 ```sh
 curl -sS http://127.0.0.1:8080/health
-```
 
-Send the included example request:
-
-```sh
-curl -sS -X POST http://127.0.0.1:8080/v1/predict \
+curl -sS -X POST http://127.0.0.1:8080/v2/packets \
   -H 'Content-Type: application/json' \
-  --data-binary @examples/request.json
+  --data-binary @examples/packet.json
 ```
 
-Because this basic example has no baseline, its separate personal-change result
-is `insufficient_data`, but it still receives low-confidence current and future
-predictions from within-day trends. Add a generated baseline object to obtain a
-stronger personal comparison. The complete request and response rules are in
-[`docs/api.md`](docs/api.md).
+The service looks for these model files by default:
 
-## Training a model
+```text
+artifacts/gateway/model.tflite
+artifacts/gateway/model-metadata.json
+```
 
-Training must happen away from the Pi. Install the training tools on a
-development computer:
+Install NumPy and a compatible LiteRT/TFLite interpreter to enable the model.
+The service remains usable without them.
+
+## Train off the Pi
+
+Use Python 3.9-3.12 on a development computer:
 
 ```sh
-python3 -m pip install -e '.[train]'
+python3 -m venv .venv-train
+. .venv-train/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e '.[gateway-train]'
+
+home-health-gateway-train data/normal-windows.jsonl artifacts/gateway
 ```
 
-Each line in the training file represents one person's sensor window. It must
-include a private person ID, the observations, and two answers recorded from the
-real world:
+Training data must contain normal 24-hour windows created from the actual
+target wearable. People are split between training, validation, and testing;
+one person's windows never appear in more than one group. The output is an
+int8 model, metadata, thresholds, participant lists, metrics, and a SHA-256
+checksum. See [the training guide](docs/training.md).
 
-```json
-{
-  "subject_id": "private-person-id",
-  "observations": [],
-  "labels": {
-    "current_unhealthy": 0,
-    "unhealthy_within_horizon": 1
-  }
-}
-```
-
-Then run:
-
-```sh
-home-health-train data/windows.jsonl artifacts/model.json \
-  --future-horizon-hours 24
-```
-
-The trainer keeps different people in training and testing. That avoids testing
-the model on the same people it has already learned from. It reports two useful
-quality measurements and writes the small model file.
-
-The default `0.5` decision point is only a software starting value. Medical and
-product owners must choose the final decision point after reviewing missed
-illnesses and false alarms.
-
-## Testing
+## Test
 
 ```sh
 PYTHONPATH=src python3 -m unittest discover -s tests -v
 ```
 
-## Installing on the Pi
+## Documentation
 
-The complete component diagram, Raspberry Pi OS preparation, installation,
-baseline workflow, model upgrade, verification, logging and update procedure are
-in the [Raspberry Pi deployment guide](docs/pi-deployment.md).
+- [API and packet contract](docs/api.md)
+- [Implemented architecture and decision logic](docs/design.md)
+- [Training and artifact workflow](docs/training.md)
+- [Dataset roles and audit commands](docs/data-sources.md)
+- [Raspberry Pi deployment and verification](docs/pi-deployment.md)
 
-In short, copy this project to `/opt/home-health-monitor`, create a
-non-administrator Linux user called `home-health`, then install
-[`deploy/home-health-monitor.service`](deploy/home-health-monitor.service).
-
-The included service starts with a 64 MB memory limit. That limit must be tested
-on the real Pi and operating-system image. Keep the server bound to `127.0.0.1`
-unless an authenticated and encrypted gateway is placed in front of it.
-
-For the choices that still need to be made before real training, read
-[`docs/design.md`](docs/design.md). The researched public datasets and the
-recommended way to combine their lessons are documented in
-[`docs/data-sources.md`](docs/data-sources.md).
+Downloaded health datasets, generated participant windows, the SQLite database,
+and trained artifacts stay outside Git.
