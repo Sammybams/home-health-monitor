@@ -86,6 +86,21 @@ class FakeInterpreter:
 
 
 class GatewayAutoencoderTests(unittest.TestCase):
+    def test_runtime_factory_prefers_current_litert_interpreter(self) -> None:
+        marker = object()
+        litert = SimpleNamespace(Interpreter=marker)
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "ai_edge_litert": SimpleNamespace(interpreter=litert),
+                "ai_edge_litert.interpreter": litert,
+            },
+        ):
+            factory = _runtime_factory()
+
+        self.assertIs(marker, factory)
+
     def test_runtime_factory_supports_tensorflow_lite_attribute(self) -> None:
         marker = object()
         tensorflow = SimpleNamespace(lite=SimpleNamespace(Interpreter=marker))

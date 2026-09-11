@@ -11,6 +11,10 @@ dependencies = []
 
 [project.optional-dependencies]
 gateway = ["numpy>=1.24,<3"]
+gateway-pi = [
+    "numpy>=1.24,<3",
+    "ai-edge-litert>=2.2,<3",
+]
 gateway-train = [
     "numpy>=1.24,<3",
     "tensorflow>=2.15,<3; python_version < '3.13'",

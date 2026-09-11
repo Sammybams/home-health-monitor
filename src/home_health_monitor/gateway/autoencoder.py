@@ -81,16 +81,21 @@ def _tensor_contract(item: Any, name: str) -> TensorContract:
 
 def _runtime_factory() -> Callable[..., InterpreterProtocol]:
     try:
-        from tflite_runtime.interpreter import Interpreter
+        from ai_edge_litert.interpreter import Interpreter
 
         return Interpreter
     except ImportError:
         try:
-            import tensorflow as tf
+            from tflite_runtime.interpreter import Interpreter
 
-            return tf.lite.Interpreter
-        except ImportError as exc:
-            raise ModelError("no TensorFlow Lite runtime is installed") from exc
+            return Interpreter
+        except ImportError:
+            try:
+                import tensorflow as tf
+
+                return tf.lite.Interpreter
+            except ImportError as exc:
+                raise ModelError("no LiteRT interpreter is installed") from exc
 
 
 def _runtime_tensor(value: list[list[list[int]]]) -> Any:
