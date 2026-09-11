@@ -188,26 +188,15 @@ behaviour rather than field-population accuracy. The full evidence is in the
 
 ## Install the development model on the Pi
 
-Follow the operating-system, account, virtual-environment, and `systemd` setup
-in the [Pi deployment guide](pi-deployment.md). To use the included model for
-integration testing, install it into the service's expected artifact directory:
+The Pi installer includes the development model automatically:
 
 ```sh
-sudo install -d -o root -g home-health -m 0750 \
-  /opt/home-health-monitor/artifacts/gateway
-sudo install -o root -g home-health -m 0640 \
-  /opt/home-health-monitor/models/development-demo/model.tflite \
-  /opt/home-health-monitor/artifacts/gateway/model.tflite
-sudo install -o root -g home-health -m 0640 \
-  /opt/home-health-monitor/models/development-demo/model-metadata.json \
-  /opt/home-health-monitor/artifacts/gateway/model-metadata.json
-sudo systemctl restart home-health-monitor
-curl -sS http://127.0.0.1:8080/health
+sudo /opt/home-health-monitor/deploy/install-pi.sh
 ```
 
-Require `model_loaded: true`. Then send the example packet and confirm the API
-returns a binary decision. Reboot once to confirm SQLite and the service resume
-without an interactive login.
+It verifies `model_loaded: true`, the artifact checksum, and a sample binary
+prediction. Follow the short [Raspberry Pi guide](raspberry-pi/README.md) for
+installation, BLE consumption, updates, and logs.
 
 ## Moving from development to field use
 

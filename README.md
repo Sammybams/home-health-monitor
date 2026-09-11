@@ -76,6 +76,21 @@ tagged `development_demo` so it cannot be confused with the later field model.
 The actual training run is in the executable
 [training and evaluation notebook](notebooks/train-and-evaluate-autoencoder.ipynb).
 
+## Install on a Raspberry Pi
+
+Use 64-bit Raspberry Pi OS Lite. On the Pi:
+
+```sh
+sudo git clone https://github.com/Sammybams/home-health-monitor.git \
+  /opt/home-health-monitor
+cd /opt/home-health-monitor
+sudo ./deploy/install-pi.sh
+```
+
+The installer adds the lightweight LiteRT runtime and included model, starts
+the service, and verifies a real prediction. It runs in the background and
+starts after reboot. See the short [Raspberry Pi guide](docs/raspberry-pi/README.md).
+
 ## Prediction order
 
 The final rule is:
@@ -162,7 +177,7 @@ PYTHONPATH=src python3 -m unittest discover -s tests -v
 - [Training and artifact workflow](docs/training.md)
 - [Dataset roles and audit commands](docs/data-sources.md)
 - [Development dataset comparison, trained model, and plots](docs/development-model.md)
-- [Raspberry Pi deployment and verification](docs/pi-deployment.md)
+- [Short Raspberry Pi setup and use guide](docs/raspberry-pi/README.md)
 
 Downloaded health datasets, generated participant windows, the SQLite database,
 and field-model artifacts stay outside Git. The small, clearly labelled
