@@ -43,6 +43,45 @@ class ModelRegistryTests(unittest.TestCase):
 
         self.assertIn(default["status"], {"development_default", "pi_validated"})
 
+    def test_real_ppg_candidate_evidence_matches_committed_artifact(self) -> None:
+        report = json.loads(
+            (ROOT / "models" / "real-ppg-v2" / "training-report.json").read_text()
+        )
+        metadata = json.loads(
+            (ROOT / "models" / "real-ppg-v2" / "model-metadata.json").read_text()
+        )
+
+        self.assertEqual(1_112, metadata["training_data"]["rows"])
+        self.assertEqual(4_288, metadata["model_size_bytes"])
+        self.assertEqual(12, report["locked_normal_test"]["interval_summary"]["count"])
+        self.assertEqual(
+            0.0, report["locked_normal_test"]["interval_summary"]["anomaly_fraction"]
+        )
+        self.assertEqual(
+            "blocked_pending_ble_contract_and_pi_validation",
+            metadata["deployment_status"],
+        )
+        self.assertNotIn("spo2_percent", metadata["input"]["features"])
+
+        notebook = json.loads(
+            (ROOT / "notebooks" / "train-real-ppg-vector-autoencoder.ipynb").read_text()
+        )
+        source = "\n".join(
+            "".join(cell.get("source", [])) for cell in notebook["cells"]
+        )
+        self.assertIn("build_feature_dataset", source)
+        self.assertIn("train_vector_autoencoder", source)
+        self.assertIn("render_real_ppg_plots", source)
+        self.assertFalse(
+            any(
+                output.get("output_type") == "error"
+                for cell in notebook["cells"]
+                for output in cell.get("outputs", [])
+            )
+        )
+        plot_directory = ROOT / "docs" / "assets" / "real-ppg-v2"
+        self.assertEqual(6, len(tuple(plot_directory.glob("*.png"))))
+
 
 if __name__ == "__main__":
     unittest.main()

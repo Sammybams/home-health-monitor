@@ -12,14 +12,18 @@
       "model_sha256": "19bac53bb029fe82808e7a032d1a8f6d048a2aea2993d1495935834f3dc97ac0",
       "training_notebook": "notebooks/train-and-evaluate-autoencoder.ipynb",
       "documentation": "docs/models/development-demo-v1.md"
-    }
-  ],
-  "planned_models": [
+    },
     {
+      "model_id": "real-ppg-vector-ae-656b0bbe66fe",
       "generation": "v2",
-      "status": "implementation_in_progress",
+      "status": "development_candidate",
       "artifact_role": "real_data_development_candidate",
+      "feature_manifest_id": "real-ppg-core-v2-candidate-1",
+      "artifact_directory": "models/real-ppg-v2",
+      "model_sha256": "656b0bbe66fee35be1188cc5b1865dafc1438e09b028eecd4730fa21c6b4ae8c",
+      "training_notebook": "notebooks/train-real-ppg-vector-autoencoder.ipynb",
       "documentation": "docs/models/real-ppg-v2.md"
     }
-  ]
+  ],
+  "planned_models": []
 }

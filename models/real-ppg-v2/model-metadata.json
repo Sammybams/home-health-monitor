@@ -1,0 +1,138 @@
+{
+  "aggregation": {
+    "interval_minutes": 8,
+    "interval_score": "95th_percentile_of_vector_scores",
+    "persistent_rule": "two_consecutive_intervals_at_or_above_threshold",
+    "severe_rule": "one_interval_at_or_above_severe_threshold",
+    "vector_score": "mean_feature_squared_reconstruction_error",
+    "vector_seconds": 5
+  },
+  "artifact_role": "real_data_development_candidate",
+  "dataset_id": "pulse-transit-time-ppg-1.1.0",
+  "deployment_status": "blocked_pending_ble_contract_and_pi_validation",
+  "feature_manifest_id": "real-ppg-core-v2-candidate-1",
+  "input": {
+    "dtype": "int8",
+    "features": [
+      "heart_rate_bpm",
+      "heart_rate_valid",
+      "ppg_rr_interval_std_ms",
+      "ppg_relative_pulse_amplitude",
+      "ppg_ac_rms_normalized",
+      "ppg_signal_quality",
+      "temperature_mean_c",
+      "temperature_std_c",
+      "acceleration_magnitude_mean",
+      "acceleration_magnitude_std",
+      "dynamic_acceleration_rms",
+      "motion_intensity"
+    ],
+    "normalization": {
+      "center": [
+        85.47008547008548,
+        1.0,
+        33.69800521626695,
+        0.010582671871477232,
+        0.0032537612214931025,
+        0.7586089963843237,
+        33.550982,
+        0.09416197666193381,
+        9.713714756001329,
+        0.6430260100690821,
+        0.7426051077895717,
+        0.027218623404227427
+      ],
+      "feature_names": [
+        "heart_rate_bpm",
+        "heart_rate_valid",
+        "ppg_rr_interval_std_ms",
+        "ppg_relative_pulse_amplitude",
+        "ppg_ac_rms_normalized",
+        "ppg_signal_quality",
+        "temperature_mean_c",
+        "temperature_std_c",
+        "acceleration_magnitude_mean",
+        "acceleration_magnitude_std",
+        "dynamic_acceleration_rms",
+        "motion_intensity"
+      ],
+      "method": "median_iqr",
+      "missing_heart_rate_policy": "normalized_zero_with_validity_feature",
+      "scale": [
+        15.157271377823378,
+        1.0,
+        42.35507467518265,
+        0.009805933533046974,
+        0.003167275539226108,
+        0.8905130157441034,
+        1.0715980000000016,
+        0.01778913022118761,
+        0.5879655531130012,
+        1.3648551872324326,
+        1.1180231750098208,
+        0.04739474409494275
+      ]
+    },
+    "scale": 0.04514150321483612,
+    "shape": [
+      1,
+      12
+    ],
+    "zero_point": -16
+  },
+  "locked_test_subjects": [
+    "s11",
+    "s14",
+    "s3",
+    "s9"
+  ],
+  "model_id": "real-ppg-vector-ae-656b0bbe66fe",
+  "model_sha256": "656b0bbe66fee35be1188cc5b1865dafc1438e09b028eecd4730fa21c6b4ae8c",
+  "model_size_bytes": 4288,
+  "output": {
+    "dtype": "int8",
+    "scale": 0.0381314791738987,
+    "shape": [
+      1,
+      12
+    ],
+    "zero_point": 33
+  },
+  "schema_version": 1,
+  "software": {
+    "numpy": "2.5.3",
+    "python": "3.12.14",
+    "tensorflow": "2.21.0"
+  },
+  "thresholds": {
+    "persistent_error": 2.4260962653160063,
+    "severe_error": 4.852192530632013,
+    "source": "quantized_out_of_fold_normal_eight_minute_scores"
+  },
+  "trained_at": "2026-09-24T13:40:57.367559+00:00",
+  "training_data": {
+    "file_name": "real-ppg-features.jsonl",
+    "rows": 1112,
+    "sha256": "f3b4425a324152334d266ce30bdb8dde8d39e4a3c42eb4abf91c88a5bbe6503e"
+  },
+  "training_subjects": [
+    "s1",
+    "s10",
+    "s12",
+    "s13",
+    "s15",
+    "s16",
+    "s17",
+    "s18",
+    "s19",
+    "s2",
+    "s20",
+    "s21",
+    "s22",
+    "s4",
+    "s5",
+    "s6",
+    "s7",
+    "s8"
+  ]
+}

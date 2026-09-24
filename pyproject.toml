@@ -36,6 +36,7 @@ home-health-data-evidence = "home_health_monitor.datasets.evidence:main"
 home-health-development-report = "home_health_monitor.reporting:main"
 home-health-ppg-features = "home_health_monitor.datasets.pulse_transit_build:main"
 home-health-ppg-train = "home_health_monitor.gateway.vector_training:main"
+home-health-ppg-report = "home_health_monitor.vector_reporting:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
