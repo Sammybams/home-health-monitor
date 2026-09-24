@@ -80,7 +80,16 @@ class ModelRegistryTests(unittest.TestCase):
             )
         )
         plot_directory = ROOT / "docs" / "assets" / "real-ppg-v2"
-        self.assertEqual(6, len(tuple(plot_directory.glob("*.png"))))
+        self.assertEqual(10, len(tuple(plot_directory.glob("*.png"))))
+        reconstruction = json.loads(
+            (ROOT / "models" / "real-ppg-v2" / "reconstruction-evaluation.json").read_text()
+        )
+        self.assertEqual(12, len(reconstruction["feature_names"]))
+        self.assertGreater(reconstruction["locked_vectors"], 0)
+        self.assertEqual(
+            reconstruction["locked_vectors"], len(reconstruction["actual"])
+        )
+        self.assertEqual(len(reconstruction["actual"]), len(reconstruction["reconstructed"]))
 
 
 if __name__ == "__main__":

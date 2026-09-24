@@ -109,7 +109,7 @@
     "severe_error": 4.852192530632013,
     "source": "quantized_out_of_fold_normal_eight_minute_scores"
   },
-  "trained_at": "2026-09-24T13:40:57.367559+00:00",
+  "trained_at": "2026-09-24T14:27:25.724513+00:00",
   "training_data": {
     "file_name": "real-ppg-features.jsonl",
     "rows": 1112,
