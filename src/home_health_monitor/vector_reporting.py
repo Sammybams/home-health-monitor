@@ -84,6 +84,8 @@ def build_reconstruction_evidence(
         actual[invalid, DATASET_FEATURE_NAMES.index(name)] = 0
     reconstructed = _reconstruct(Path(model_path), actual, np)
     residual = actual - reconstructed
+    mae = np.mean(np.abs(residual), axis=0)
+    rmse = np.sqrt(np.mean(residual**2, axis=0))
     controlled_values, scenario_labels = controlled_anomalies(actual, np)
     controlled_reconstructed = _reconstruct(Path(model_path), controlled_values, np)
     scenario_order = ["normal", "heart_rate_shift", "temperature_shift", "motion_shift", "combined_drift"]
@@ -99,6 +101,10 @@ def build_reconstruction_evidence(
         "locked_vectors": len(rows),
         "units": "robust-standardized feature units",
         "feature_names": list(DATASET_FEATURE_NAMES),
+        "per_feature": {
+            name: {"mae": float(mae[index]), "rmse": float(rmse[index])}
+            for index, name in enumerate(DATASET_FEATURE_NAMES)
+        },
         "actual": actual.tolist(),
         "reconstructed": reconstructed.tolist(),
         "scenario_names": scenario_order,
@@ -218,7 +224,16 @@ def render_real_ppg_plots(
     oof = [item["p95_vector_error"] for item in training_report["cross_validation"]["intervals"]]
     locked = [item["p95_vector_error"] for item in training_report["locked_normal_test"]["intervals"]]
     fig, ax = plt.subplots(figsize=(8.2, 4.6))
-    ax.boxplot([oof, locked], labels=["Cross-validation", "Locked test"], patch_artist=True)
+    try:
+        ax.boxplot(
+            [oof, locked], tick_labels=["Cross-validation", "Locked test"],
+            patch_artist=True,
+        )
+    except TypeError:  # matplotlib < 3.9
+        ax.boxplot(
+            [oof, locked], labels=["Cross-validation", "Locked test"],
+            patch_artist=True,
+        )
     ax.axhline(threshold, color="#DC2626", linestyle="--", linewidth=2, label="Threshold")
     ax.set_ylabel("Eight-minute anomaly score")
     ax.set_title("Healthy interval reconstruction scores", loc="left", fontweight="bold")
