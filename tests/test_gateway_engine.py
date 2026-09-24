@@ -166,16 +166,19 @@ class GatewayEngineTests(unittest.TestCase):
             set(body),
         )
 
-    def test_ingest_prunes_records_older_than_30_days(self) -> None:
-        old = packet(50, when=NOW - timedelta(days=31))
+    def test_ingest_keeps_twelve_months_and_prunes_older_records(self) -> None:
+        old = packet(50, when=NOW - timedelta(days=366))
+        recent = packet(51, when=NOW - timedelta(days=364))
         self.store.add_packet(old)
+        self.store.add_packet(recent)
         self.store.save_event("subject-1", {"decision": "normal"}, old.timestamp)
+        self.store.save_event("subject-1", {"decision": "normal"}, recent.timestamp)
 
         GatewayEngine(self.store).ingest(packet())
 
-        saved = self.store.packets_between("subject-1", NOW - timedelta(days=60), NOW)
-        self.assertEqual(1, len(saved))
-        self.assertEqual(1, len(self.store.recent_events("subject-1")))
+        saved = self.store.packets_between("subject-1", NOW - timedelta(days=400), NOW)
+        self.assertEqual(2, len(saved))
+        self.assertEqual(2, len(self.store.recent_events("subject-1")))
 
 
 if __name__ == "__main__":

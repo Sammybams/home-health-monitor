@@ -26,7 +26,7 @@ flowchart LR
     F --> B[BLE feature packet]
     B --> J[Hardware BLE-to-JSON bridge]
     J --> G[This home gateway]
-    G --> D[(SQLite, 30-day retention)]
+    G --> D[(SQLite, 12-month retention)]
     G --> P[48-hour personal baseline]
     G --> A[Int8 autoencoder]
     W --> O[Binary OR decision]
@@ -55,7 +55,7 @@ immediate `normal` or `anomaly` result.
 - strict versioned packet validation;
 - duplicate protection using device ID and sequence number;
 - persistent SQLite packet, calibration, and prediction storage;
-- automatic deletion of packet and event history older than 30 days;
+- automatic deletion of packet and event history older than 365 days;
 - a 48-hour personal calibration using robust median/MAD statistics;
 - the current V1 24-hour sequence path and the V2 eight-minute vector path;
 - explicit quality and missing-data inputs with no forward filling;

@@ -47,7 +47,7 @@ surface, and core readings are not interchangeable.
 8. When a model is loaded, it creates the 24-hour model tensor and runs int8
    inference.
 9. It combines all evidence with an OR rule, stores the event, and returns JSON.
-10. Packet and prediction-event history older than 30 days is deleted
+10. Packet and prediction-event history older than 365 days is deleted
     automatically; the small calibration profile remains.
 
 ## Forty-eight-hour calibration

@@ -21,7 +21,7 @@ from .windowing import build_window
 BASELINE_ANOMALY_Z = 4.0
 QUALITY_FAILURE_LEVEL = 0.5
 QUALITY_FAILURE_COUNT = 3
-RETENTION_DAYS = 30
+RETENTION_DAYS = 365
 
 
 class AutoencoderProtocol(Protocol):

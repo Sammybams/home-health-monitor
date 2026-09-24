@@ -53,7 +53,7 @@ immediate `normal` or `anomaly` result. The full payload is defined in the
 1. The gateway validates the entire packet and rejects unknown or invalid
    fields.
 2. SQLite stores it once using `(device_id, sequence)` for duplicate protection.
-3. Records older than 30 days are pruned.
+3. Records older than 365 days are pruned.
 4. The gateway checks persistent sensor-quality failures.
 5. It loads or advances the person's 48-hour calibration.
 6. When calibration is ready, it compares the current measurements with that
