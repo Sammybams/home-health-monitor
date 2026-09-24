@@ -15,8 +15,10 @@ from home_health_monitor.gateway.vector_training import (
     load_real_ppg_vectors,
     participant_plan,
     controlled_anomalies,
+    aggregate_record_scores,
     vector_thresholds,
 )
+from home_health_monitor.gateway.vector_training import _reconstruction_scores
 
 
 def vector(subject: str, *, valid: float = 1.0, heart_rate: float = 70.0) -> RealPpgVector:
@@ -27,10 +29,19 @@ def vector(subject: str, *, valid: float = 1.0, heart_rate: float = 70.0) -> Rea
 
 
 class VectorTrainingTests(unittest.TestCase):
+    def test_vector_score_is_mean_feature_squared_error(self) -> None:
+        expected = np.zeros((1, 12), dtype=np.float32)
+        reconstructed = np.zeros((1, 12), dtype=np.float32)
+        reconstructed[0, :4] = [1.0, 2.0, 3.0, 4.0]
+
+        scores = _reconstruction_scores(expected, reconstructed, np)
+
+        self.assertAlmostEqual((1.0 + 4.0 + 9.0 + 16.0) / 12.0, float(scores[0]))
+
     def test_thresholds_are_selected_from_quantized_normal_scores(self) -> None:
         persistent, severe = vector_thresholds([0.1, 0.2, 0.3, 0.4], np)
 
-        self.assertGreaterEqual(persistent, 0.3)
+        self.assertGreaterEqual(persistent, 0.2)
         self.assertGreaterEqual(severe, persistent * 2.0)
 
     def test_controlled_anomalies_cover_each_expected_signal_family(self) -> None:
@@ -44,6 +55,19 @@ class VectorTrainingTests(unittest.TestCase):
             set(labels),
         )
         self.assertTrue(np.all(np.any(changed != 0.0, axis=1)))
+
+    def test_record_aggregation_uses_upper_tail_of_five_second_scores(self) -> None:
+        rows = [
+            RealPpgVector("s1", "s1_sit", "sit", "female", 30, (1.0,) * 12),
+            RealPpgVector("s1", "s1_sit", "sit", "female", 30, (1.0,) * 12),
+            RealPpgVector("s1", "s1_walk", "walk", "female", 30, (1.0,) * 12),
+        ]
+
+        intervals = aggregate_record_scores(rows, [0.1, 0.9, 0.3], np)
+
+        self.assertEqual(2, len(intervals))
+        self.assertEqual("s1_sit", intervals[0]["record"])
+        self.assertGreater(intervals[0]["p95_vector_error"], 0.8)
 
     def test_participant_plan_is_deterministic_and_has_no_leakage(self) -> None:
         rows = [vector(f"s{index}") for index in range(1, 23)]

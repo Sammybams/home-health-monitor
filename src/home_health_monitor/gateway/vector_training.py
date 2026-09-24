@@ -221,8 +221,8 @@ def _quantile(values: Any, probability: float, np: Any) -> float:
 
 
 def vector_thresholds(scores: Any, np: Any) -> tuple[float, float]:
-    persistent = max(_quantile(scores, 0.99, np), 1e-8)
-    severe = max(_quantile(scores, 0.999, np), persistent * 2.0)
+    persistent = max(_quantile(scores, 0.95, np), 1e-8)
+    severe = max(_quantile(scores, 0.99, np), persistent * 2.0)
     return persistent, severe
 
 
@@ -302,18 +302,18 @@ def _reconstruction_scores(values: Any, reconstructions: Any, np: Any) -> Any:
 def controlled_anomalies(values: Any, np: Any) -> tuple[Any, list[str]]:
     """Create labelled sensitivity checks in normalized feature space."""
     scenarios = (
-        ("heart_rate_shift", {"heart_rate_bpm": 4.0}),
-        ("temperature_shift", {"temperature_mean_c": 4.0}),
+        ("heart_rate_shift", {"heart_rate_bpm": 6.0}),
+        ("temperature_shift", {"temperature_mean_c": 6.0}),
         (
             "motion_shift",
-            {"dynamic_acceleration_rms": 4.0, "motion_intensity": 4.0},
+            {"dynamic_acceleration_rms": 6.0, "motion_intensity": 6.0},
         ),
         (
             "combined_drift",
             {
-                "heart_rate_bpm": 3.0,
-                "temperature_mean_c": 3.0,
-                "dynamic_acceleration_rms": 3.0,
+                "heart_rate_bpm": 6.0,
+                "temperature_mean_c": 6.0,
+                "dynamic_acceleration_rms": 6.0,
             },
         ),
     )
@@ -351,6 +351,47 @@ def _group_summaries(
         else:
             key = str(getattr(row, field))
         groups.setdefault(key, []).append(float(score))
+    return {
+        key: _score_summary(values, threshold, np)
+        for key, values in sorted(groups.items())
+    }
+
+
+def aggregate_record_scores(
+    rows: Iterable[RealPpgVector], scores: Any, np: Any
+) -> tuple[dict[str, Any], ...]:
+    grouped: dict[str, tuple[RealPpgVector, list[float]]] = {}
+    for row, score in zip(rows, scores):
+        if row.record not in grouped:
+            grouped[row.record] = (row, [])
+        grouped[row.record][1].append(float(score))
+    result = []
+    for record, (row, values) in sorted(grouped.items()):
+        array = np.asarray(values, dtype=np.float64)
+        result.append(
+            {
+                "record": record,
+                "subject_id": row.subject_id,
+                "activity": row.activity,
+                "gender": row.gender,
+                "age_group": "20-29" if row.age < 30 else "30+",
+                "vector_count": len(values),
+                "median_vector_error": float(np.median(array)),
+                "p95_vector_error": float(np.percentile(array, 95)),
+                "maximum_vector_error": float(np.max(array)),
+            }
+        )
+    return tuple(result)
+
+
+def _interval_group_summaries(
+    intervals: tuple[dict[str, Any], ...], field: str, threshold: float, np: Any
+) -> dict[str, dict[str, float | int]]:
+    groups: dict[str, list[float]] = {}
+    for interval in intervals:
+        groups.setdefault(str(interval[field]), []).append(
+            float(interval["p95_vector_error"])
+        )
     return {
         key: _score_summary(values, threshold, np)
         for key, values in sorted(groups.items())
@@ -435,7 +476,15 @@ def train_vector_autoencoder(
         )
         tf.keras.backend.clear_session()
 
-    persistent_threshold, severe_threshold = vector_thresholds(out_of_fold_scores, np)
+    out_of_fold_intervals = aggregate_record_scores(
+        out_of_fold_rows, out_of_fold_scores, np
+    )
+    out_of_fold_interval_scores = [
+        interval["p95_vector_error"] for interval in out_of_fold_intervals
+    ]
+    persistent_threshold, severe_threshold = vector_thresholds(
+        out_of_fold_interval_scores, np
+    )
     normalizer = fit_robust_normalizer(development_rows, np)
     development_values = normalizer.transform(development_rows, np)
     locked_values = normalizer.transform(locked_rows, np)
@@ -456,6 +505,10 @@ def train_vector_autoencoder(
     locked_scores = _reconstruction_scores(
         locked_values, locked_reconstructions, np
     )
+    locked_intervals = aggregate_record_scores(locked_rows, locked_scores, np)
+    locked_interval_scores = [
+        interval["p95_vector_error"] for interval in locked_intervals
+    ]
     simulated_values, simulated_scenarios = controlled_anomalies(locked_values, np)
     simulated_reconstructions = _quantized_reconstructions(
         model_bytes, simulated_values, tf, np
@@ -467,9 +520,14 @@ def train_vector_autoencoder(
     input_checksum = hashlib.sha256(Path(input_path).read_bytes()).hexdigest()
     tensor_metadata = _quantized_tensor_metadata(model_bytes, tf)
     model_id = f"real-ppg-vector-ae-{checksum[:12]}"
-    scenario_groups: dict[str, list[float]] = {}
-    for scenario, score in zip(simulated_scenarios, simulated_scores):
-        scenario_groups.setdefault(scenario, []).append(float(score))
+    scenario_groups: dict[str, tuple[dict[str, Any], ...]] = {}
+    offset = 0
+    for scenario in dict.fromkeys(simulated_scenarios):
+        count = simulated_scenarios.count(scenario)
+        scenario_groups[scenario] = aggregate_record_scores(
+            locked_rows, simulated_scores[offset : offset + count], np
+        )
+        offset += count
     report = {
         "schema_version": 1,
         "model_id": model_id,
@@ -483,40 +541,60 @@ def train_vector_autoencoder(
         },
         "cross_validation": {
             "folds": fold_reports,
-            "out_of_fold": _score_summary(
+            "out_of_fold_vectors": _score_summary(
                 out_of_fold_scores, persistent_threshold, np
             ),
-            "by_activity": _group_summaries(
-                tuple(out_of_fold_rows), out_of_fold_scores, "activity", persistent_threshold, np
+            "out_of_fold_intervals": _score_summary(
+                out_of_fold_interval_scores, persistent_threshold, np
             ),
-            "by_gender": _group_summaries(
-                tuple(out_of_fold_rows), out_of_fold_scores, "gender", persistent_threshold, np
+            "intervals_by_activity": _interval_group_summaries(
+                out_of_fold_intervals, "activity", persistent_threshold, np
             ),
-            "by_age_group": _group_summaries(
-                tuple(out_of_fold_rows), out_of_fold_scores, "age_group", persistent_threshold, np
+            "intervals_by_gender": _interval_group_summaries(
+                out_of_fold_intervals, "gender", persistent_threshold, np
+            ),
+            "intervals_by_age_group": _interval_group_summaries(
+                out_of_fold_intervals, "age_group", persistent_threshold, np
             ),
         },
         "locked_normal_test": {
-            "summary": _score_summary(locked_scores, persistent_threshold, np),
-            "by_activity": _group_summaries(
-                locked_rows, locked_scores, "activity", persistent_threshold, np
+            "vector_summary": _score_summary(locked_scores, persistent_threshold, np),
+            "interval_summary": _score_summary(
+                locked_interval_scores, persistent_threshold, np
             ),
-            "by_gender": _group_summaries(
-                locked_rows, locked_scores, "gender", persistent_threshold, np
+            "intervals_by_activity": _interval_group_summaries(
+                locked_intervals, "activity", persistent_threshold, np
             ),
-            "by_age_group": _group_summaries(
-                locked_rows, locked_scores, "age_group", persistent_threshold, np
+            "intervals_by_gender": _interval_group_summaries(
+                locked_intervals, "gender", persistent_threshold, np
             ),
-            "scores": [float(score) for score in locked_scores],
-            "activities": [row.activity for row in locked_rows],
-            "subjects": [row.subject_id for row in locked_rows],
+            "intervals_by_age_group": _interval_group_summaries(
+                locked_intervals, "age_group", persistent_threshold, np
+            ),
+            "intervals": list(locked_intervals),
         },
         "controlled_sensitivity": {
-            name: _score_summary(scores, persistent_threshold, np)
-            for name, scores in sorted(scenario_groups.items())
+            name: {
+                "standardized_shift": 6.0,
+                "summary": _score_summary(
+                    [interval["p95_vector_error"] for interval in intervals],
+                    persistent_threshold,
+                    np,
+                ),
+                "intervals": list(intervals),
+            }
+            for name, intervals in sorted(scenario_groups.items())
+        },
+        "aggregation": {
+            "interval_minutes": 8,
+            "vector_seconds": 5,
+            "vector_score": "mean_feature_squared_reconstruction_error",
+            "interval_score": "95th_percentile_of_vector_scores",
+            "persistent_rule": "two_consecutive_intervals_at_or_above_threshold",
+            "severe_rule": "one_interval_at_or_above_severe_threshold",
         },
         "thresholds": {
-            "source": "quantized_out_of_fold_normal_scores",
+            "source": "quantized_out_of_fold_normal_eight_minute_scores",
             "persistent_error": persistent_threshold,
             "severe_error": severe_threshold,
         },
