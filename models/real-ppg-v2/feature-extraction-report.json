@@ -1,8 +1,8 @@
 {
   "activity_counts": {
-    "run": 2155,
-    "sit": 2152,
-    "walk": 2123
+    "run": 372,
+    "sit": 372,
+    "walk": 368
   },
   "dataset_id": "pulse-transit-time-ppg-1.1.0",
   "ecg_reference_valid_fraction": 1.0,
@@ -23,42 +23,43 @@
     "dynamic_acceleration_rms",
     "motion_intensity"
   ],
-  "feature_rows": 6430,
-  "heart_rate_valid_fraction": 0.6922239502332815,
+  "feature_rows": 1112,
+  "heart_rate_valid_fraction": 0.6960431654676259,
   "output_name": "real-ppg-features.jsonl",
-  "output_sha256": "6edb67e9a5788f5ed82b593feb77debb607a12b4f742036da590c572a19d6355",
+  "output_sha256": "f3b4425a324152334d266ce30bdb8dde8d39e4a3c42eb4abf91c88a5bbe6503e",
   "ppg_vs_ecg_heart_rate": {
-    "bias_bpm": -0.03256972759259792,
-    "count": 4451,
-    "mae_bpm": 1.7775490180642979,
-    "p95_absolute_error_bpm": 5.1752031121357405,
-    "rmse_bpm": 4.7253334728196625
+    "bias_bpm": -0.060533354845198166,
+    "count": 774,
+    "mae_bpm": 1.8057733025703384,
+    "p95_absolute_error_bpm": 4.659829307721093,
+    "rmse_bpm": 4.948585644259875
   },
   "ppg_vs_ecg_heart_rate_by_activity": {
     "run": {
-      "bias_bpm": -0.5693628981387414,
-      "count": 1429,
-      "mae_bpm": 2.050326144387135,
-      "p95_absolute_error_bpm": 7.118946919108988,
-      "rmse_bpm": 4.739787756889539
+      "bias_bpm": -0.5214000927985484,
+      "count": 248,
+      "mae_bpm": 1.7992037680392503,
+      "p95_absolute_error_bpm": 6.372524388574353,
+      "rmse_bpm": 4.011387357305073
     },
     "sit": {
-      "bias_bpm": 0.35327802167771344,
-      "count": 1926,
-      "mae_bpm": 1.0696641145073187,
-      "p95_absolute_error_bpm": 2.8138749616289687,
-      "rmse_bpm": 2.83286585980409
+      "bias_bpm": 0.3495864375980261,
+      "count": 333,
+      "mae_bpm": 1.0919841844653067,
+      "p95_absolute_error_bpm": 2.8562659897310327,
+      "rmse_bpm": 2.7878961808851384
     },
     "walk": {
-      "bias_bpm": -0.010731519913930723,
-      "count": 1096,
-      "mae_bpm": 2.665859064355729,
-      "p95_absolute_error_bpm": 7.229888830410996,
-      "rmse_bpm": 6.876495208894271
+      "bias_bpm": -0.17594755106883977,
+      "count": 193,
+      "mae_bpm": 3.0457785921697447,
+      "p95_absolute_error_bpm": 9.745268335762866,
+      "rmse_bpm": 8.007534226522951
     }
   },
   "schema_version": 1,
   "segment_seconds": 5.0,
   "source_archive_name": "pulse-transit-time-ppg.zip",
-  "source_archive_sha256": "fbd8defee1be6af4496b9191cbc915a5bdf81b4766148b830aae6f4cfa7677f9"
+  "source_archive_sha256": "fbd8defee1be6af4496b9191cbc915a5bdf81b4766148b830aae6f4cfa7677f9",
+  "stride_seconds": 30.0
 }

@@ -20,7 +20,7 @@ class PulseTransitBuildTests(unittest.TestCase):
             (root / "models" / "real-ppg-v2" / "feature-extraction-report.json").read_text()
         )
 
-        self.assertEqual(6_430, report["feature_rows"])
+        self.assertEqual(1_112, report["feature_rows"])
         self.assertEqual(0, report["extraction_failure_count"])
         self.assertEqual(
             "fbd8defee1be6af4496b9191cbc915a5bdf81b4766148b830aae6f4cfa7677f9",
@@ -73,6 +73,14 @@ class PulseTransitBuildTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "segment_seconds"):
                 build_feature_dataset("not-read.zip", output, segment_seconds=0)
             self.assertFalse(output.exists())
+
+    def test_rejects_stride_shorter_than_capture(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "features.jsonl"
+            with self.assertRaisesRegex(ValueError, "stride_seconds"):
+                build_feature_dataset(
+                    "not-read.zip", output, segment_seconds=5, stride_seconds=4
+                )
 
 
 if __name__ == "__main__":

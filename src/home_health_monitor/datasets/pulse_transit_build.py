@@ -46,12 +46,15 @@ def build_feature_dataset(
     output_path: str | Path,
     *,
     segment_seconds: float = 5.0,
+    stride_seconds: float = 30.0,
 ) -> dict[str, Any]:
     """Stream the ZIP into an atomic JSONL feature dataset and return its audit."""
     source = Path(archive_path)
     destination = Path(output_path)
     if not math.isfinite(segment_seconds) or segment_seconds <= 0:
         raise ValueError("segment_seconds must be finite and positive")
+    if not math.isfinite(stride_seconds) or stride_seconds < segment_seconds:
+        raise ValueError("stride_seconds must be finite and at least segment_seconds")
     destination.parent.mkdir(parents=True, exist_ok=True)
     activity_counts: dict[str, int] = defaultdict(int)
     activity_errors: dict[str, list[float]] = defaultdict(list)
@@ -75,8 +78,14 @@ def build_feature_dataset(
         with temporary, PulseTransitArchive(source) as archive:
             for record in archive.records():
                 segment_rows = int(round(record.sample_rate_hz * segment_seconds))
+                stride_rows = int(round(record.sample_rate_hz * stride_seconds))
                 for segment_index, segment in enumerate(
-                    archive.iter_csv_segments(record.name, segment_rows, malformed="skip")
+                    archive.iter_csv_segments(
+                        record.name,
+                        segment_rows,
+                        stride_rows=stride_rows,
+                        malformed="skip",
+                    )
                 ):
                     try:
                         result = extract_segment_features(
@@ -137,6 +146,7 @@ def build_feature_dataset(
         "output_name": destination.name,
         "output_sha256": _sha256_file(destination),
         "segment_seconds": segment_seconds,
+        "stride_seconds": stride_seconds,
         "feature_names": list(DATASET_FEATURE_NAMES),
         "feature_rows": feature_rows,
         "activity_counts": dict(sorted(activity_counts.items())),
@@ -159,9 +169,13 @@ def main() -> None:
     parser.add_argument("output", type=Path)
     parser.add_argument("--report", type=Path)
     parser.add_argument("--segment-seconds", type=float, default=5.0)
+    parser.add_argument("--stride-seconds", type=float, default=30.0)
     args = parser.parse_args()
     report = build_feature_dataset(
-        args.archive, args.output, segment_seconds=args.segment_seconds
+        args.archive,
+        args.output,
+        segment_seconds=args.segment_seconds,
+        stride_seconds=args.stride_seconds,
     )
     if args.report:
         args.report.parent.mkdir(parents=True, exist_ok=True)

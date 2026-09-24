@@ -3,6 +3,7 @@
   "status": "dataset_feature_candidate",
   "is_production_ble_contract": false,
   "segment_seconds": 5,
+  "stride_seconds": 30,
   "source_ppg_channels_for_heart_rate": ["pleth_1", "pleth_2", "pleth_3"],
   "source_ppg_channel_for_morphology": "pleth_2",
   "source_temperature_channel": "temp_1",

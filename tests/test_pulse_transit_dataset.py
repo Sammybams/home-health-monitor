@@ -158,6 +158,14 @@ class PulseTransitArchiveTests(unittest.TestCase):
         self.assertEqual(1, len(segments))
         self.assertEqual((4, 5), tuple(row.line_number for row in segments[0]))
 
+    def test_segment_stride_matches_periodic_wearable_sampling(self) -> None:
+        with PulseTransitArchive(self.path) as dataset:
+            segments = list(
+                dataset.iter_csv_segments("s1_sit", 1, stride_rows=2)
+            )
+
+        self.assertEqual((2, 4), tuple(segment[0].line_number for segment in segments))
+
     def test_committed_real_archive_audit_is_portable_and_records_defects(self) -> None:
         root = Path(__file__).resolve().parents[1]
         report = json.loads(

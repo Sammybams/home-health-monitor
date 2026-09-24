@@ -177,20 +177,31 @@ class PulseTransitArchive:
         record_name: str,
         segment_rows: int,
         *,
+        stride_rows: int | None = None,
         malformed: str = "raise",
     ) -> Iterator[tuple[PulseTransitCsvRow, ...]]:
         """Yield complete, non-overlapping segments without loading a recording."""
         if segment_rows <= 0:
             raise ValueError("segment_rows must be positive")
+        stride_rows = segment_rows if stride_rows is None else stride_rows
+        if stride_rows < segment_rows:
+            raise ValueError("stride_rows must be at least segment_rows")
         segment: list[PulseTransitCsvRow] = []
         previous_line_number: int | None = None
+        stride_position = 0
         for row in self.iter_csv_rows(record_name, malformed=malformed):
             if previous_line_number is not None and row.line_number != previous_line_number + 1:
                 segment.clear()
-            segment.append(row)
+                stride_position = 0
+            if stride_position < segment_rows:
+                segment.append(row)
             previous_line_number = row.line_number
             if len(segment) == segment_rows:
                 yield tuple(segment)
+                segment.clear()
+            stride_position += 1
+            if stride_position == stride_rows:
+                stride_position = 0
                 segment.clear()
 
     def scan_csv(self, record_name: str) -> PulseTransitCsvScan:
