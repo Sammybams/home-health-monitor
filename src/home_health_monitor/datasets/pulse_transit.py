@@ -149,7 +149,11 @@ class PulseTransitArchive:
             )
         return tuple(result)
 
-    def iter_csv_rows(self, record_name: str) -> Iterator[PulseTransitCsvRow]:
+    def iter_csv_rows(
+        self, record_name: str, *, malformed: str = "raise"
+    ) -> Iterator[PulseTransitCsvRow]:
+        if malformed not in {"raise", "skip"}:
+            raise ValueError("malformed policy must be 'raise' or 'skip'")
         if record_name not in self._subject_rows:
             raise PulseTransitDataError(f"unknown record {record_name}")
         member = self._member(f"csv/{record_name}.csv")
@@ -160,11 +164,30 @@ class PulseTransitArchive:
                 raise PulseTransitDataError(f"{record_name}.csv has an invalid header")
             for line_number, row in enumerate(reader, 2):
                 if len(row) != len(header):
+                    if malformed == "skip":
+                        continue
                     raise PulseTransitDataError(
                         f"{record_name}.csv row {line_number} has {len(row)} columns; "
                         f"expected {len(header)}"
                     )
                 yield PulseTransitCsvRow(line_number, dict(zip(header, row)))
+
+    def iter_csv_segments(
+        self,
+        record_name: str,
+        segment_rows: int,
+        *,
+        malformed: str = "raise",
+    ) -> Iterator[tuple[PulseTransitCsvRow, ...]]:
+        """Yield complete, non-overlapping segments without loading a recording."""
+        if segment_rows <= 0:
+            raise ValueError("segment_rows must be positive")
+        segment: list[PulseTransitCsvRow] = []
+        for row in self.iter_csv_rows(record_name, malformed=malformed):
+            segment.append(row)
+            if len(segment) == segment_rows:
+                yield tuple(segment)
+                segment.clear()
 
     def scan_csv(self, record_name: str) -> PulseTransitCsvScan:
         """Count structurally valid rows while retaining every malformed location."""

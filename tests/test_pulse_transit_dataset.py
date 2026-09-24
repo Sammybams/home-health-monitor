@@ -118,6 +118,26 @@ class PulseTransitArchiveTests(unittest.TestCase):
         self.assertEqual(6, report.malformed_rows[0]["line_number"])
         self.assertEqual(1, report.csv_length_mismatches[0]["difference"])
 
+    def test_csv_stream_can_explicitly_skip_a_malformed_row(self) -> None:
+        malformed = self.path.with_name("stream-malformed.zip")
+        self.addCleanup(malformed.unlink, missing_ok=True)
+        with zipfile.ZipFile(self.path) as source, zipfile.ZipFile(malformed, "w") as target:
+            for item in source.infolist():
+                content = source.read(item.filename)
+                if item.filename.endswith("/csv/s1_sit.csv"):
+                    content += b"2021-01-01 00:00:01,10,0\n"
+                target.writestr(item, content)
+
+        with PulseTransitArchive(malformed) as dataset:
+            rows = list(dataset.iter_csv_rows("s1_sit", malformed="skip"))
+
+        self.assertEqual(4, len(rows))
+
+    def test_csv_stream_rejects_unknown_malformed_policy(self) -> None:
+        with PulseTransitArchive(self.path) as dataset:
+            with self.assertRaisesRegex(ValueError, "malformed policy"):
+                list(dataset.iter_csv_rows("s1_sit", malformed="ignore"))
+
     def test_committed_real_archive_audit_is_portable_and_records_defects(self) -> None:
         root = Path(__file__).resolve().parents[1]
         report = json.loads(

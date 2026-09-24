@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "status": "dataset_feature_candidate",
+  "is_production_ble_contract": false,
+  "segment_seconds": 5,
+  "source_ppg_channel": "pleth_2",
+  "source_temperature_channel": "temp_1",
+  "feature_order": [
+    "heart_rate_bpm",
+    "heart_rate_valid",
+    "ppg_rr_interval_std_ms",
+    "ppg_relative_pulse_amplitude",
+    "ppg_ac_rms_normalized",
+    "ppg_signal_quality",
+    "temperature_mean_c",
+    "temperature_std_c",
+    "acceleration_magnitude_mean",
+    "acceleration_magnitude_std",
+    "dynamic_acceleration_rms",
+    "motion_intensity"
+  ],
+  "reference_only_fields": [
+    "ecg_reference_hr_bpm"
+  ],
+  "notes": [
+    "Heart rate is derived from distal infrared PPG; ECG peaks are used only to measure extraction error.",
+    "A failed PPG heart-rate extraction is encoded as heart_rate_bpm=0 and heart_rate_valid=0 so downstream processing can still produce a prediction.",
+    "This manifest describes the public dataset experiment. It must not be treated as the wearable BLE payload contract until the wearable feature formulas are confirmed."
+  ]
+}
