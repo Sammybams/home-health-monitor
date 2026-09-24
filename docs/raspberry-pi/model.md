@@ -64,7 +64,8 @@ flags still need an explicit mapping and one decoded BLE example for testing.
 Read the [V2 model card](../models/real-ppg-v2.md) for the exact data, validation,
 plots, and promotion checklist.
 
-The six saved evaluation charts are in
+The ten saved evaluation charts—including direct actual-versus-reconstructed,
+per-feature error, reconstruction examples, and controlled-residual views—are in
 [`docs/assets/real-ppg-v2`](../assets/real-ppg-v2/). The numeric audit,
 feature-extraction report, training report and metadata are in
 [`models/real-ppg-v2`](../../models/real-ppg-v2/).

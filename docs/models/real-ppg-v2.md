@@ -75,7 +75,43 @@ temperature baseline remains necessary.
 
 ![Controlled sensitivity](../assets/real-ppg-v2/real-ppg-controlled-sensitivity.png)
 
-The remaining plots are in [`docs/assets/real-ppg-v2`](../assets/real-ppg-v2/).
+## Direct reconstruction comparisons
+
+The four locked participants contribute 204 vectors to these comparisons. They
+were not used to fit the final model. Values are shown in robust-standardized
+units because BPM, temperature, acceleration, and signal-quality values have
+different physical scales.
+
+![Actual versus reconstructed features](../assets/real-ppg-v2/real-ppg-actual-vs-reconstructed.png)
+
+Points near the red diagonal are reconstructed closely. The chart makes the
+compression trade-off visible: pulse amplitude and several motion features
+retain a clearer relationship, while extreme heart-rate, RR-variability and
+temperature values are pulled toward the learned normal centre.
+
+![Reconstruction error by feature](../assets/real-ppg-v2/real-ppg-reconstruction-error-by-feature.png)
+
+The feature chart reports both mean absolute error and root mean squared error.
+The larger RMSE for heart rate, RR variability and mean temperature shows that
+occasional larger misses dominate those features; this is also why the gateway
+keeps independent personal vital-sign checks.
+
+![Example reconstructions](../assets/real-ppg-v2/real-ppg-reconstruction-examples.png)
+
+The first panel is the median-error locked normal vector. The second is the
+highest-error locked normal vector. This shows why decisions use an eight-minute
+aggregate and persistence rule rather than declaring every imperfect vector an
+anomaly.
+
+![Normal versus controlled residuals](../assets/real-ppg-v2/real-ppg-normal-vs-controlled-residuals.png)
+
+The heatmap connects each controlled change to the features where reconstruction
+error grows. Heart-rate, temperature and motion changes concentrate in their
+expected columns, while the combined drift raises all three families.
+
+The machine-readable actual and reconstructed arrays are in
+[`reconstruction-evaluation.json`](../../models/real-ppg-v2/reconstruction-evaluation.json).
+All ten plots are in [`docs/assets/real-ppg-v2`](../assets/real-ppg-v2/).
 
 ## How it is used
 

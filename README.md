@@ -81,6 +81,10 @@ Both actual training runs are executable notebooks:
 - [V1 training](notebooks/train-and-evaluate-autoencoder.ipynb)
 - [V2 real-PPG training](notebooks/train-real-ppg-vector-autoencoder.ipynb)
 
+The executed V2 notebook displays ten committed evaluation figures, including
+direct actual-versus-reconstructed comparisons on locked participants. See the
+[V2 model card](docs/models/real-ppg-v2.md) for a plain-language interpretation.
+
 ## Install on a Raspberry Pi
 
 Use 64-bit Raspberry Pi OS Lite. On the Pi:
