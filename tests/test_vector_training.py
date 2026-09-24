@@ -1,0 +1,81 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+import tempfile
+import unittest
+
+import numpy as np
+
+from home_health_monitor.datasets.pulse_transit_build import DATASET_ID, FEATURE_MANIFEST_ID
+from home_health_monitor.datasets.pulse_transit_features import DATASET_FEATURE_NAMES
+from home_health_monitor.gateway.vector_training import (
+    RealPpgVector,
+    fit_robust_normalizer,
+    load_real_ppg_vectors,
+    participant_plan,
+)
+
+
+def vector(subject: str, *, valid: float = 1.0, heart_rate: float = 70.0) -> RealPpgVector:
+    values = [float(index + 1) for index in range(len(DATASET_FEATURE_NAMES))]
+    values[DATASET_FEATURE_NAMES.index("heart_rate_bpm")] = heart_rate
+    values[DATASET_FEATURE_NAMES.index("heart_rate_valid")] = valid
+    return RealPpgVector(subject, f"{subject}_sit", "sit", "female", 30, tuple(values))
+
+
+class VectorTrainingTests(unittest.TestCase):
+    def test_participant_plan_is_deterministic_and_has_no_leakage(self) -> None:
+        rows = [vector(f"s{index}") for index in range(1, 23)]
+
+        first = participant_plan(rows, seed=42)
+        second = participant_plan(rows, seed=42)
+
+        self.assertEqual(first, second)
+        self.assertEqual(5, len(first.validation_folds))
+        self.assertTrue(set(first.development_subjects).isdisjoint(first.locked_test_subjects))
+        validation_subjects = [subject for fold in first.validation_folds for subject in fold]
+        self.assertCountEqual(first.development_subjects, validation_subjects)
+        self.assertEqual(len(validation_subjects), len(set(validation_subjects)))
+
+    def test_normalizer_ignores_missing_heart_rate_then_imputes_normalized_zero(self) -> None:
+        rows = [
+            vector("s1", heart_rate=60.0),
+            vector("s2", heart_rate=80.0),
+            vector("s3", valid=0.0, heart_rate=0.0),
+        ]
+
+        normalizer = fit_robust_normalizer(rows, np)
+        transformed = normalizer.transform(rows, np)
+
+        heart_rate = DATASET_FEATURE_NAMES.index("heart_rate_bpm")
+        self.assertAlmostEqual(70.0, normalizer.center[heart_rate])
+        self.assertEqual(0.0, transformed[2, heart_rate])
+        self.assertTrue(np.all(np.isfinite(transformed)))
+
+    def test_loader_validates_manifest_and_demographics(self) -> None:
+        item = {
+            "schema_version": 1,
+            "dataset_id": DATASET_ID,
+            "feature_manifest_id": FEATURE_MANIFEST_ID,
+            "feature_names": list(DATASET_FEATURE_NAMES),
+            "subject_id": "s1",
+            "record": "s1_sit",
+            "activity": "sit",
+            "demographics": {"gender": "female", "age": 25},
+            "values": [1.0] * len(DATASET_FEATURE_NAMES),
+        }
+        item["values"][DATASET_FEATURE_NAMES.index("heart_rate_valid")] = 1.0
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "vectors.jsonl"
+            path.write_text(json.dumps(item) + "\n", encoding="utf-8")
+
+            rows = load_real_ppg_vectors(path)
+
+        self.assertEqual(1, len(rows))
+        self.assertEqual("s1", rows[0].subject_id)
+        self.assertEqual(25, rows[0].age)
+
+
+if __name__ == "__main__":
+    unittest.main()
