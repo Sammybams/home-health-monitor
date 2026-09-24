@@ -55,6 +55,21 @@ CREATE TABLE IF NOT EXISTS events (
 );
 CREATE INDEX IF NOT EXISTS events_subject_timestamp
     ON events(subject_id, timestamp DESC);
+
+CREATE TABLE IF NOT EXISTS vector_intervals (
+    id INTEGER PRIMARY KEY,
+    subject_id TEXT NOT NULL,
+    device_id TEXT NOT NULL,
+    sequence INTEGER NOT NULL,
+    interval_start TEXT NOT NULL,
+    interval_end TEXT NOT NULL,
+    score REAL NOT NULL,
+    above_threshold INTEGER NOT NULL,
+    payload TEXT NOT NULL,
+    UNIQUE(device_id, sequence)
+);
+CREATE INDEX IF NOT EXISTS vector_intervals_subject_time
+    ON vector_intervals(subject_id, interval_end DESC);
 """
 
 
@@ -239,5 +254,51 @@ class GatewayStore:
             cursor = self.connection.execute(
                 "DELETE FROM events WHERE timestamp < ?",
                 (cutoff.isoformat(),),
+            )
+        return cursor.rowcount
+
+    def save_vector_interval(
+        self, *, subject_id: str, device_id: str, sequence: int,
+        interval_start: datetime, interval_end: datetime, score: float,
+        above_threshold: bool, payload: dict[str, Any],
+    ) -> bool:
+        encoded = json.dumps(payload, separators=(",", ":"), sort_keys=True, allow_nan=False)
+        try:
+            with self.connection:
+                self.connection.execute(
+                    """INSERT INTO vector_intervals
+                    (subject_id,device_id,sequence,interval_start,interval_end,score,above_threshold,payload)
+                    VALUES (?,?,?,?,?,?,?,?)""",
+                    (subject_id, device_id, sequence, interval_start.isoformat(),
+                     interval_end.isoformat(), score, int(above_threshold), encoded),
+                )
+        except sqlite3.IntegrityError:
+            return False
+        return True
+
+    def vector_interval_by_sequence(self, device_id: str, sequence: int) -> dict[str, Any] | None:
+        row = self.connection.execute(
+            "SELECT payload FROM vector_intervals WHERE device_id=? AND sequence=?",
+            (device_id, sequence),
+        ).fetchone()
+        return None if row is None else json.loads(row["payload"])
+
+    def vector_history(self, subject_id: str) -> tuple[sqlite3.Row, ...]:
+        return tuple(self.connection.execute(
+            """SELECT interval_start,interval_end,score,above_threshold FROM vector_intervals
+            WHERE subject_id=? ORDER BY interval_end ASC,id ASC""", (subject_id,)
+        ).fetchall())
+
+    def latest_vector_result(self, subject_id: str) -> dict[str, Any] | None:
+        row = self.connection.execute(
+            """SELECT payload FROM vector_intervals WHERE subject_id=?
+            ORDER BY interval_end DESC,id DESC LIMIT 1""", (subject_id,)
+        ).fetchone()
+        return None if row is None else json.loads(row["payload"])
+
+    def delete_vector_intervals_before(self, cutoff: datetime) -> int:
+        with self.connection:
+            cursor = self.connection.execute(
+                "DELETE FROM vector_intervals WHERE interval_end < ?", (cutoff.isoformat(),)
             )
         return cursor.rowcount
