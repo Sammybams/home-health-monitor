@@ -5,6 +5,9 @@ what happens for every wearable packet, and how the home gateway runs on a
 Raspberry Pi Zero 2 W. This repository contains the home-gateway side only. It
 does not contain wearable firmware, a BLE driver, or SMS functionality.
 
+The first path below is the currently installed V1 service. V2 is a committed
+short-vector candidate described later on this page.
+
 ## Complete system boundary
 
 ```mermaid
@@ -55,7 +58,7 @@ immediate `normal` or `anomaly` result. The full payload is defined in the
 5. It loads or advances the person's 48-hour calibration.
 6. When calibration is ready, it compares the current measurements with that
    person's median/MAD baseline.
-7. When a model is installed, it constructs a 24-hour window and performs int8
+7. With installed V1, it constructs a 24-hour window and performs int8
    autoencoder inference.
 8. It combines every available result, stores the event, and returns one binary
    prediction.
@@ -126,6 +129,40 @@ anomaly = wearable anomaly
        OR persistent quality failure
 ```
 
+## V2 real-PPG candidate path
+
+V2 follows the newer design agreed in the chat:
+
+```mermaid
+flowchart LR
+    W[Wearable wakes about every 30 seconds] --> C[2-5 second capture]
+    C --> V[Versioned feature vector]
+    V --> B[BLE to Pi]
+    B --> M[4.2 KiB int8 vector autoencoder]
+    M --> E[One reconstruction error per vector]
+    E --> I[95th percentile across 8 minutes]
+    I --> D[normal or anomaly]
+```
+
+The public-data experiment contains 12 reproducible features because the final
+20-field wearable formulas have not been supplied. It samples five seconds of
+the real waveform every 30 seconds, so a full eight-minute interval normally
+contains about 16 scores. There is no 48-hour tensor: the 48 hours are system
+calibration history.
+
+During calibration the general public-data threshold keeps the model path
+binary. After 288 eight-minute intervals, the personal model threshold becomes
+that person's mean normal reconstruction error plus three standard deviations.
+The physiological personal-baseline tier operates independently, including
+continuous SpO2 from the wearable.
+
+V2 requires two consecutive intervals above its persistent threshold or one
+interval above its severe threshold. The code exists in
+[`vector_autoencoder.py`](../src/home_health_monitor/gateway/vector_autoencoder.py),
+but is not connected to the live BLE/HTTP service until the exact wearable
+manifest is confirmed. This prevents a provisional dataset field from being
+mistaken for a firmware contract.
+
 ## Authoritative training notebook
 
 [`notebooks/train-and-evaluate-autoencoder.ipynb`](../notebooks/train-and-evaluate-autoencoder.ipynb)
@@ -161,6 +198,12 @@ MPLBACKEND=Agg python -m jupyter nbconvert \
 
 Training is not performed on the 512 MB Pi. The Pi only loads the exported
 18 KiB model and runs inference.
+
+The V2 candidate has its own authoritative notebook:
+[`notebooks/train-real-ppg-vector-autoencoder.ipynb`](../notebooks/train-real-ppg-vector-autoencoder.ipynb).
+It executes the raw ZIP audit, cadence-aligned extraction, grouped validation,
+int8 export, locked evaluation, and plot generation. See the
+[V2 model card](models/real-ppg-v2.md) for results and remaining promotion gates.
 
 ## Current development performance
 

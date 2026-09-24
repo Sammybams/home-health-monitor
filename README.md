@@ -28,7 +28,7 @@ flowchart LR
     J --> G[This home gateway]
     G --> D[(SQLite, 30-day retention)]
     G --> P[48-hour personal baseline]
-    G --> A[24-hour int8 autoencoder]
+    G --> A[Int8 autoencoder]
     W --> O[Binary OR decision]
     P --> O
     A --> O
@@ -57,9 +57,9 @@ immediate `normal` or `anomaly` result.
 - persistent SQLite packet, calibration, and prediction storage;
 - automatic deletion of packet and event history older than 30 days;
 - a 48-hour personal calibration using robust median/MAD statistics;
-- 24-hour model windows: 288 ordered five-minute bins;
+- the current V1 24-hour sequence path and the V2 eight-minute vector path;
 - explicit quality and missing-data inputs with no forward filling;
-- a small normal-only Conv1D autoencoder trainer;
+- normal-only Conv1D V1 and short-vector V2 autoencoder trainers;
 - fully integer-quantized TFLite model export and checksum validation;
 - model persistence: two high-error windows, or one severe window;
 - an always-available binary fallback when no model is installed;
@@ -68,13 +68,17 @@ immediate `normal` or `anomaly` result.
 - GalaxyPPG and supplied-synthetic-data audit tools;
 - automated tests for the gateway, model contract, training input, and API.
 
-A trained 18 KiB development model and its plots are included now. It exercises
-the complete int8 path using a reproducible development corpus; see the
-[development model results](docs/development-model.md). It is intentionally
-tagged `development_demo` so it cannot be confused with the later field model.
+Two trained models are versioned. V1 is the installed 18 KiB development default
+and proves the existing HTTP/Pi path. V2 is a 4.2 KiB real-PPG development
+candidate trained on 22 people, with five-fold participant-grouped validation
+and eight-minute aggregation. V2 is not promoted until Victory's exact wearable
+feature/BLE contract and target-Pi measurements are available. See the
+[model comparison](docs/models/README.md).
 
-The actual training run is in the executable
-[training and evaluation notebook](notebooks/train-and-evaluate-autoencoder.ipynb).
+Both actual training runs are executable notebooks:
+
+- [V1 training](notebooks/train-and-evaluate-autoencoder.ipynb)
+- [V2 real-PPG training](notebooks/train-real-ppg-vector-autoencoder.ipynb)
 
 ## Install on a Raspberry Pi
 
@@ -105,9 +109,10 @@ anomaly = wearable anomaly
 There is always a result. During the first 48 hours, before the personal
 baseline is ready, the gateway still returns the wearable result and checks for
 persistent sensor failures. If neither is abnormal, the result is `normal`.
-When calibration completes, the personal comparison becomes active. If a valid
-model artifact is present, the long-term 24-hour pattern check also becomes
-active. If the model is absent or cannot load, the other checks continue.
+When calibration completes, the personal comparison becomes active. The
+installed V1 service also checks its 24-hour pattern. The V2 candidate instead
+scores each short vector and combines roughly 16 scores every eight minutes.
+If a model is absent or cannot load, the other checks continue.
 
 ## Run locally
 
@@ -163,6 +168,16 @@ actual target wearable. People are split between training, validation, and
 testing; one person's windows never appear in more than one group. See the
 [training guide](docs/training.md).
 
+For the real-PPG candidate, place the downloaded ZIP outside Git and run:
+
+```sh
+export PULSE_TRANSIT_PPG_ZIP=/secure-data/pulse-transit-time-ppg.zip
+MPLBACKEND=Agg python -m jupyter nbconvert \
+  --execute --to notebook --inplace \
+  --ExecutePreprocessor.timeout=900 \
+  notebooks/train-real-ppg-vector-autoencoder.ipynb
+```
+
 ## Test
 
 ```sh
@@ -181,6 +196,6 @@ PYTHONPATH=src python3 -m unittest discover -s tests -v
 - [Development dataset comparison, trained model, and plots](docs/development-model.md)
 - [Short Raspberry Pi setup and use guide](docs/raspberry-pi/README.md)
 
-Downloaded health datasets, generated participant windows, the SQLite database,
-and field-model artifacts stay outside Git. The small, clearly labelled
-development demonstration is versioned for reproducibility.
+Downloaded health datasets, generated vectors/windows, and SQLite databases
+stay outside Git. Both small model artifacts, their reports, and plots are
+versioned and clearly labelled for reproducibility.

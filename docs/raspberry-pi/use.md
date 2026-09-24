@@ -35,7 +35,7 @@ The important output is always one of:
 1. The packet is checked and saved in SQLite.
 2. During the first 48 hours, the gateway learns that person's normal values.
 3. After calibration, it checks new values against that personal baseline.
-4. It also builds a rolling 24-hour window for the autoencoder.
+4. The installed V1 service builds a rolling 24-hour window for its autoencoder.
 5. The wearable, sensor-quality, personal-baseline, and autoencoder checks are
    combined into the final binary result.
 
@@ -45,3 +45,14 @@ calibration progress survive restarts.
 The HTTP service listens only on `127.0.0.1`, so it is intended for a BLE
 process on the same Pi. This repository does not include SMS or notification
 delivery.
+
+## Where V2 fits
+
+The V2 candidate will replace step 4 after Victory confirms the exact BLE
+vector. It will score each roughly 30-second vector, combine about 16 scores
+every eight minutes, and use a personal reconstruction threshold after the
+first 48 hours. The wearable, personal vital-sign baseline, and quality checks
+still run, so the final output remains one binary result.
+
+Do not copy the V2 files over V1 yet: its committed 12-field dataset manifest is
+an experiment, not the final 20-field wearable contract.

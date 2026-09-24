@@ -3,6 +3,44 @@
 Training happens on a development computer, never on the 512 MB Pi. The Pi only
 loads the final integer model and performs inference.
 
+There are two reproducible pipelines. V1 trains the installed 24-hour
+development demonstration described below. V2 trains the real-PPG short-vector
+candidate with the separate notebook and command in the next section.
+
+## Train the V2 real-PPG candidate
+
+Download the audited Pulse Transit Time PPG 1.1.0 ZIP outside Git, prepare the
+training environment, and run the authoritative notebook:
+
+```sh
+python3.12 -m venv .venv-train
+. .venv-train/bin/activate
+python -m pip install -e '.[gateway-train,analysis,notebook]'
+export PULSE_TRANSIT_PPG_ZIP=/secure-data/pulse-transit-time-ppg.zip
+MPLBACKEND=Agg python -m jupyter nbconvert \
+  --execute --to notebook --inplace \
+  --ExecutePreprocessor.timeout=900 \
+  notebooks/train-real-ppg-vector-autoencoder.ipynb
+```
+
+That notebook performs the raw archive audit, extracts five-second captures at
+the proposed 30-second wearable cadence, runs five participant-grouped folds,
+quantizes every fold before threshold scoring, evaluates the locked people,
+exports the final int8 model, and renders six plots. Equivalent individual
+commands are `home-health-ppg-features`, `home-health-ppg-train`, and
+`home-health-ppg-report`.
+
+V2's first 48 hours are calibration history, not a model tensor. The runtime
+starts with its grouped public-data threshold so it can always return a binary
+result, then changes to the person's mean reconstruction error plus three
+standard deviations after 288 eight-minute calibration intervals.
+
+The V2 artifact remains a development candidate until the final 20-field
+wearable formulas and BLE payload match its manifest, normal target-wearable
+data including continuous SpO2 is collected, and the target Pi is benchmarked.
+
+## V1 24-hour pipeline
+
 ## Data required
 
 Use continuous normal recordings from the exact target wearable: the same

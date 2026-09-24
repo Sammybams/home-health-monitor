@@ -23,8 +23,8 @@ cd /opt/home-health-monitor
 sudo ./deploy/install-pi.sh
 ```
 
-The installer adds the small LiteRT runtime, installs the included development
-model, creates the database service, and makes the gateway start after every
+The installer adds the small LiteRT runtime, installs the V1 development
+default, creates the database service, and makes the gateway start after every
 reboot. It can take several minutes on a Pi Zero 2 W.
 
 ## 3. Confirm it works
@@ -49,3 +49,7 @@ Do not keep the command from the shared screenshot running in a terminal. That
 command is useful for development, but it stops when the terminal closes. The
 installer runs the gateway in the background using `systemd` and starts it
 again after a reboot.
+
+The repository also includes the V2 real-PPG candidate, but the installer does
+not activate it. See [the model guide](model.md) for why the BLE contract and a
+target-Pi benchmark must be completed first.

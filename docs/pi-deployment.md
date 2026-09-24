@@ -20,3 +20,10 @@ The service runs as the restricted `home-health` user, listens on
 `/var/lib/home-health-monitor/gateway.db`, starts after boot, and has a 96 MiB
 memory limit. This repository contains only the home gateway; BLE firmware and
 SMS delivery are outside its scope.
+
+The installer currently activates registered V1. The 4.2 KiB V2 real-PPG model
+and LiteRT-compatible runtime are committed, but V2 is deliberately not wired
+to the service until the exact wearable 20-field payload is available. Once it
+is, the deployment sequence is: implement the BLE-to-vector adapter, rerun the
+V2 notebook on target-wearable normal data, copy model plus metadata, benchmark
+under the same 96 MiB service limit, and only then change the registry default.

@@ -16,8 +16,8 @@ therefore cannot claim learned continuous SpO2 behaviour. The exact archive
 checksum, counts, malformed row, truncated CSV record, and allowed-use policy
 are in the [real PPG data audit](real-ppg-data.md).
 
-The exact audited counts and plots from all three reviewed sources are in the
-[development model report](development-model.md).
+The audited counts, extracted-vector evidence, model results, and plots are in
+the [V2 model card](models/real-ppg-v2.md).
 
 ## GalaxyPPG: engineering validation only
 
@@ -107,7 +107,7 @@ feature manifest deployed in the field. Each participant needs:
 - sensor model/configuration and firmware identity;
 - temperature type and placement;
 - continuous timestamped heart rate, SpO2, temperature, motion, and quality;
-- enough coverage to construct multiple 24-hour windows after calibration;
+- enough coverage for 48-hour calibration and repeated eight-minute intervals;
 - reviewed normal periods and expected activity variety.
 
 Recruitment must represent the intended deployment area. Personal robust
@@ -121,11 +121,13 @@ participants or subgroup evaluation.
 3. Reject invalid timestamps, incompatible temperature sites, and corrupt rows.
 4. Build each person's profile from at least 48 hours, 80% valid coverage, and
    eight low-motion hours.
-5. Create five-minute medians without copying values into gaps.
-6. Create 288-step normal windows and matching masks.
+5. Apply the same short-vector formulas used by the wearable without copying
+   values into gaps.
+6. Group the approximately 30-second vectors into eight-minute inference
+   intervals while retaining individual vector scores.
 7. Split people—not rows—into train, validation, and test groups.
 8. Train and quantify the autoencoder using [the training guide](training.md).
 
-Downloaded datasets, participant metadata, converted records, normal windows,
-SQLite files, and model artifacts are excluded from Git. Only code, schemas,
-documentation, and non-sensitive test fixtures belong in this repository.
+Downloaded datasets, participant metadata, converted records, generated
+vectors/windows, and SQLite files are excluded from Git. The two small,
+audited development artifacts are committed with checksums and explicit roles.

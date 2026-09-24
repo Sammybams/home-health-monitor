@@ -52,3 +52,7 @@ sudo /opt/home-health-monitor/deploy/verify-pi.sh
 ```
 
 The verifier rejects a mismatched checksum or a model that did not load.
+
+Only replace V1 with another `features-v1` model through this directory. V2 has
+a different short-vector manifest and runtime path; it must be integrated after
+the wearable contract is finalized, not copied over the V1 filenames.

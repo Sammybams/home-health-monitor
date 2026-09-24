@@ -71,3 +71,22 @@ Do not:
 - claim the short laboratory sessions validate 48-hour calibration;
 - claim the sensors or participants match the target deployment;
 - commit the source archive or extracted participant data to Git.
+
+## Reproducible feature result
+
+The committed builder samples a complete five-second capture every 30 seconds,
+matching the proposed wearable cycle. It produced 1,112 vectors with no feature
+extraction failures. PPG heart rate was accepted for 69.6% of vectors; accepted
+estimates had 1.81 BPM mean absolute error against ECG peaks.
+
+Rebuild the ignored JSONL corpus and its portable report:
+
+```sh
+home-health-ppg-features \
+  /secure-data/pulse-transit-time-ppg.zip \
+  notebooks/.work/real-ppg-features.jsonl \
+  --report models/real-ppg-v2/feature-extraction-report.json
+```
+
+The committed result is
+[`feature-extraction-report.json`](../models/real-ppg-v2/feature-extraction-report.json).
