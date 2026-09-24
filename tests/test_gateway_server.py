@@ -6,9 +6,12 @@ from pathlib import Path
 import tempfile
 import threading
 import unittest
+from unittest.mock import patch
 
 from home_health_monitor.gateway.server import create_server
 from tests.test_gateway_contracts import valid_packet
+from tests.test_vector_contracts import valid_interval
+from tests.test_vector_engine import FakeVectorModel
 
 
 def request_json(server, method: str, path: str, payload: dict | None = None):
@@ -57,6 +60,34 @@ class GatewayServerTests(unittest.TestCase):
         self.assertEqual("ready", body["status"])
         self.assertFalse(body["model_loaded"])
         self.assertEqual("ready", body["database"])
+        self.assertFalse(body["vector_model_loaded"])
+
+    def test_vector_endpoint_returns_binary_prediction_when_loaded(self) -> None:
+        self.server.shutdown()
+        self.server.server_close()
+        self.thread.join(timeout=2)
+        directory = Path(self.temporary.name)
+        with patch(
+            "home_health_monitor.gateway.server.VectorAutoencoderModel.load",
+            return_value=FakeVectorModel(),
+        ):
+            self.server = create_server(
+                "127.0.0.1", 0, database_path=directory / "vector.db",
+                model_path=directory / "missing.tflite",
+                metadata_path=directory / "missing-metadata.json",
+                vector_model_path=directory / "vector.tflite",
+                vector_metadata_path=directory / "vector-metadata.json",
+                max_body_bytes=64 * 1024,
+            )
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+        status, result = request_json(self.server, "POST", "/v3/intervals", valid_interval())
+        health_status, health = request_json(self.server, "GET", "/health")
+
+        self.assertEqual(200, status)
+        self.assertIn(result["decision"], {"normal", "anomaly"})
+        self.assertEqual(200, health_status)
+        self.assertTrue(health["vector_model_loaded"])
 
     def test_latest_prediction_and_calibration_are_available(self) -> None:
         request_json(self.server, "POST", "/v2/packets", valid_packet())

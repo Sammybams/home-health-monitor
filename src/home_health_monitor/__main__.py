@@ -15,6 +15,11 @@ def main() -> None:
         "--model-metadata", default="artifacts/gateway/model-metadata.json"
     )
     parser.add_argument("--max-body-bytes", default=64 * 1024, type=int)
+    parser.add_argument("--vector-model", default="artifacts/real-ppg-v2/model.tflite")
+    parser.add_argument(
+        "--vector-model-metadata",
+        default="artifacts/real-ppg-v2/model-metadata.json",
+    )
     args = parser.parse_args()
     run(
         args.host,
@@ -23,6 +28,8 @@ def main() -> None:
         model_path=args.model,
         metadata_path=args.model_metadata,
         max_body_bytes=args.max_body_bytes,
+        vector_model_path=args.vector_model,
+        vector_metadata_path=args.vector_model_metadata,
     )
 
 

@@ -12,6 +12,9 @@ from .autoencoder import AutoencoderModel, ModelError
 from .contracts import parse_packet
 from .engine import GatewayEngine
 from .store import GatewayStore
+from .vector_autoencoder import VectorAutoencoderModel
+from .vector_contracts import parse_vector_interval
+from .vector_engine import VectorGatewayEngine
 
 
 LOGGER = logging.getLogger("home_health_monitor.gateway")
@@ -22,6 +25,9 @@ class GatewayServer(HTTPServer):
     store: GatewayStore
     model_loaded: bool
     model_error: str | None
+    vector_engine: VectorGatewayEngine | None
+    vector_model_loaded: bool
+    vector_model_error: str | None
     max_body_bytes: int
 
     def server_close(self) -> None:
@@ -60,8 +66,18 @@ class Handler(BaseHTTPRequestHandler):
                     "database": "ready",
                     "model_loaded": self.server.model_loaded,
                     "model_reason": self.server.model_error,
+                    "vector_model_loaded": self.server.vector_model_loaded,
+                    "vector_model_reason": self.server.vector_model_error,
                 },
             )
+            return
+        if parsed.path == "/v3/prediction":
+            subject_id = self._subject_id(parsed.query)
+            if subject_id is None:
+                self._json(400, {"error": "subject_id_required"})
+                return
+            result = self.server.store.latest_vector_result(subject_id)
+            self._json(404 if result is None else 200, result or {"error": "prediction_not_found"})
             return
         if parsed.path not in {"/v2/prediction", "/v2/calibration"}:
             self._json(404, {"error": "not_found"})
@@ -80,7 +96,8 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, events[0]["calibration"])
 
     def do_POST(self) -> None:  # noqa: N802
-        if urlsplit(self.path).path != "/v2/packets":
+        path = urlsplit(self.path).path
+        if path not in {"/v2/packets", "/v3/intervals"}:
             self._json(404, {"error": "not_found"})
             return
         if self.headers.get_content_type() != "application/json":
@@ -96,13 +113,22 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             payload = json.loads(self.rfile.read(length))
-            packet = parse_packet(payload)
-            result = self.server.engine.ingest(packet).to_dict()
+            if path == "/v2/packets":
+                packet = parse_packet(payload)
+                result = self.server.engine.ingest(packet).to_dict()
+            else:
+                if self.server.vector_engine is None:
+                    self._json(503, {"error": "vector_model_unavailable", "detail": self.server.vector_model_error})
+                    return
+                result = self.server.vector_engine.ingest(parse_vector_interval(payload))
         except json.JSONDecodeError:
             self._json(400, {"error": "invalid_json"})
             return
         except InputError as exc:
             self._json(422, {"error": "invalid_input", "detail": str(exc)})
+            return
+        except ModelError as exc:
+            self._json(422, {"error": "invalid_model_input", "detail": str(exc)})
             return
         self._json(200, result)
 
@@ -118,6 +144,8 @@ def create_server(
     model_path: str | Path,
     metadata_path: str | Path,
     max_body_bytes: int,
+    vector_model_path: str | Path | None = None,
+    vector_metadata_path: str | Path | None = None,
 ) -> GatewayServer:
     server = GatewayServer((host, port), Handler)
     server.max_body_bytes = max_body_bytes
@@ -131,6 +159,17 @@ def create_server(
         server.model_loaded = False
         server.model_error = str(exc)
     server.engine = GatewayEngine(server.store, model=model)
+    server.vector_engine = None
+    server.vector_model_loaded = False
+    server.vector_model_error = "vector model paths were not configured"
+    if vector_model_path is not None and vector_metadata_path is not None:
+        try:
+            vector_model = VectorAutoencoderModel.load(vector_model_path, vector_metadata_path)
+            server.vector_engine = VectorGatewayEngine(server.store, vector_model)
+            server.vector_model_loaded = True
+            server.vector_model_error = None
+        except ModelError as exc:
+            server.vector_model_error = str(exc)
     return server
 
 
@@ -142,6 +181,8 @@ def run(
     model_path: str | Path,
     metadata_path: str | Path,
     max_body_bytes: int,
+    vector_model_path: str | Path | None = None,
+    vector_metadata_path: str | Path | None = None,
 ) -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     server = create_server(
@@ -151,6 +192,8 @@ def run(
         model_path=model_path,
         metadata_path=metadata_path,
         max_body_bytes=max_body_bytes,
+        vector_model_path=vector_model_path,
+        vector_metadata_path=vector_metadata_path,
     )
     LOGGER.info(
         "listening on http://%s:%s model_loaded=%s",
