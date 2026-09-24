@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import io
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -116,6 +117,20 @@ class PulseTransitArchiveTests(unittest.TestCase):
         self.assertEqual("s1_sit", report.malformed_rows[0]["record"])
         self.assertEqual(6, report.malformed_rows[0]["line_number"])
         self.assertEqual(1, report.csv_length_mismatches[0]["difference"])
+
+    def test_committed_real_archive_audit_is_portable_and_records_defects(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        report = json.loads(
+            (root / "models" / "real-ppg-v2" / "data-audit.json").read_text()
+        )
+
+        self.assertEqual("pulse-transit-time-ppg.zip", report["archive_name"])
+        self.assertNotIn("/Users/", json.dumps(report))
+        self.assertEqual(22, report["participant_count"])
+        self.assertEqual(66, report["recording_count"])
+        self.assertEqual(1, report["csv_malformed_rows"])
+        self.assertEqual(1, report["recordings_with_csv_length_mismatch"])
+        self.assertFalse(report["feature_availability"]["spo2_percent"])
 
 
 if __name__ == "__main__":

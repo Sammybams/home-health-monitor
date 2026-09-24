@@ -4,6 +4,18 @@ No reviewed public dataset contains the exact target wearable's continuous
 motion, SpO2, temperature, derived heart rate, full-day coverage, and deployment
 population. The datasets therefore have separate, explicit roles.
 
+## Pulse Transit Time PPG: V2 real-data development source
+
+The version 1.1.0 archive contains real ECG, multi-wavelength PPG, temperature,
+acceleration, gyroscope, and sensor-pressure recordings from 22 healthy
+participants performing sitting, walking, and running. It is the primary source
+for the short-vector V2 development model and PPG-derived heart-rate validation.
+
+SpO2 appears only as start/end activity metadata, not a continuous channel. V2
+therefore cannot claim learned continuous SpO2 behaviour. The exact archive
+checksum, counts, malformed row, truncated CSV record, and allowed-use policy
+are in the [real PPG data audit](real-ppg-data.md).
+
 The exact audited counts and plots from all three reviewed sources are in the
 [development model report](development-model.md).
 

@@ -177,6 +177,7 @@ PYTHONPATH=src python3 -m unittest discover -s tests -v
 - [Implemented architecture and decision logic](docs/design.md)
 - [Training and artifact workflow](docs/training.md)
 - [Dataset roles and audit commands](docs/data-sources.md)
+- [Real Pulse Transit PPG data audit](docs/real-ppg-data.md)
 - [Development dataset comparison, trained model, and plots](docs/development-model.md)
 - [Short Raspberry Pi setup and use guide](docs/raspberry-pi/README.md)
 

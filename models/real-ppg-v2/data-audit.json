@@ -1,0 +1,80 @@
+{
+  "activity_counts": {
+    "run": 22,
+    "sit": 22,
+    "walk": 22
+  },
+  "age_range": [
+    20,
+    55
+  ],
+  "archive_name": "pulse-transit-time-ppg.zip",
+  "archive_sha256": "fbd8defee1be6af4496b9191cbc915a5bdf81b4766148b830aae6f4cfa7677f9",
+  "channel_names": [
+    "a_x",
+    "a_y",
+    "a_z",
+    "ecg",
+    "g_x",
+    "g_y",
+    "g_z",
+    "lc_1",
+    "lc_2",
+    "pleth_1",
+    "pleth_2",
+    "pleth_3",
+    "pleth_4",
+    "pleth_5",
+    "pleth_6",
+    "temp_1",
+    "temp_2",
+    "temp_3"
+  ],
+  "csv_length_mismatches": [
+    {
+      "csv_row_count": 182282,
+      "difference": -60345,
+      "record": "s18_walk",
+      "wfdb_sample_count": 242627
+    }
+  ],
+  "csv_malformed_rows": 1,
+  "csv_valid_rows": 16156786,
+  "dataset_role": "real_data_development_candidate",
+  "endpoint_spo2_count": 132,
+  "endpoint_spo2_range": [
+    94.0,
+    99.0
+  ],
+  "feature_availability": {
+    "heart_rate_bpm": true,
+    "motion_intensity": true,
+    "spo2_percent": false,
+    "temperature_c": true
+  },
+  "gender_counts": {
+    "female": 7,
+    "male": 15
+  },
+  "malformed_rows": [
+    {
+      "actual_columns": 9,
+      "expected_columns": 20,
+      "line_number": 182283,
+      "record": "s18_walk"
+    }
+  ],
+  "mean_age": 28.409091,
+  "participant_count": 22,
+  "production_training_eligible": false,
+  "reason_codes": [
+    "no_continuous_spo2",
+    "short_activity_recordings",
+    "not_target_wearable",
+    "not_target_population"
+  ],
+  "recording_count": 66,
+  "recordings_with_csv_length_mismatch": 1,
+  "total_duration_hours": 9.009518,
+  "total_waveform_samples": 16217132
+}
