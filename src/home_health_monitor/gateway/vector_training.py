@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
+import argparse
+import hashlib
 import json
 import math
 from pathlib import Path
+import platform
 import random
 from typing import Any, Iterable
 
@@ -207,3 +211,385 @@ def fit_robust_normalizer(
         centers.append(center)
         scales.append(scale)
     return RobustNormalizer(tuple(centers), tuple(scales))
+
+
+def _quantile(values: Any, probability: float, np: Any) -> float:
+    array = np.asarray(values, dtype=np.float64)
+    if array.size == 0 or not np.all(np.isfinite(array)) or np.any(array < 0):
+        raise VectorTrainingDataError("threshold scores must be finite and non-negative")
+    return float(np.quantile(array, probability))
+
+
+def vector_thresholds(scores: Any, np: Any) -> tuple[float, float]:
+    persistent = max(_quantile(scores, 0.99, np), 1e-8)
+    severe = max(_quantile(scores, 0.999, np), persistent * 2.0)
+    return persistent, severe
+
+
+def _build_autoencoder(tf: Any) -> Any:
+    inputs = tf.keras.Input(shape=(len(DATASET_FEATURE_NAMES),), name="feature_vector")
+    encoded = tf.keras.layers.Dense(8, activation="relu", name="encoder_8")(inputs)
+    bottleneck = tf.keras.layers.Dense(3, activation="relu", name="bottleneck_3")(encoded)
+    decoded = tf.keras.layers.Dense(8, activation="relu", name="decoder_8")(bottleneck)
+    outputs = tf.keras.layers.Dense(
+        len(DATASET_FEATURE_NAMES), name="reconstruction"
+    )(decoded)
+    model = tf.keras.Model(inputs, outputs, name="real_ppg_vector_autoencoder")
+    model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.001), loss="mse")
+    return model
+
+
+def _tflite_bytes(model: Any, representative: Any, tf: Any, np: Any) -> bytes:
+    converter = tf.lite.TFLiteConverter.from_keras_model(model)
+    converter.optimizations = [tf.lite.Optimize.DEFAULT]
+
+    def representative_dataset():
+        for item in representative[: min(300, len(representative))]:
+            yield [item[np.newaxis, :].astype(np.float32)]
+
+    converter.representative_dataset = representative_dataset
+    converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
+    converter.inference_input_type = tf.int8
+    converter.inference_output_type = tf.int8
+    return converter.convert()
+
+
+def _quantized_reconstructions(model_bytes: bytes, values: Any, tf: Any, np: Any) -> Any:
+    interpreter = tf.lite.Interpreter(model_content=model_bytes)
+    interpreter.allocate_tensors()
+    input_detail = interpreter.get_input_details()[0]
+    output_detail = interpreter.get_output_details()[0]
+    input_scale, input_zero_point = input_detail["quantization"]
+    output_scale, output_zero_point = output_detail["quantization"]
+    if input_scale <= 0 or output_scale <= 0:
+        raise VectorTrainingDataError("quantized model has invalid tensor scales")
+    result = []
+    for item in values:
+        quantized = np.clip(
+            np.rint(item / input_scale) + input_zero_point, -128, 127
+        ).astype(np.int8)
+        interpreter.set_tensor(input_detail["index"], quantized[np.newaxis, :])
+        interpreter.invoke()
+        output = interpreter.get_tensor(output_detail["index"])[0]
+        result.append((output.astype(np.float32) - output_zero_point) * output_scale)
+    return np.asarray(result, dtype=np.float32)
+
+
+def _quantized_tensor_metadata(model_bytes: bytes, tf: Any) -> dict[str, Any]:
+    interpreter = tf.lite.Interpreter(model_content=model_bytes)
+    interpreter.allocate_tensors()
+    result = {}
+    for name, detail in (
+        ("input", interpreter.get_input_details()[0]),
+        ("output", interpreter.get_output_details()[0]),
+    ):
+        scale, zero_point = detail["quantization"]
+        if scale <= 0:
+            raise VectorTrainingDataError(f"quantized {name} tensor has invalid scale")
+        result[name] = {
+            "shape": [int(value) for value in detail["shape"]],
+            "dtype": str(detail["dtype"].__name__),
+            "scale": float(scale),
+            "zero_point": int(zero_point),
+        }
+    return result
+
+
+def _reconstruction_scores(values: Any, reconstructions: Any, np: Any) -> Any:
+    return np.mean((values - reconstructions) ** 2, axis=1)
+
+
+def controlled_anomalies(values: Any, np: Any) -> tuple[Any, list[str]]:
+    """Create labelled sensitivity checks in normalized feature space."""
+    scenarios = (
+        ("heart_rate_shift", {"heart_rate_bpm": 4.0}),
+        ("temperature_shift", {"temperature_mean_c": 4.0}),
+        (
+            "motion_shift",
+            {"dynamic_acceleration_rms": 4.0, "motion_intensity": 4.0},
+        ),
+        (
+            "combined_drift",
+            {
+                "heart_rate_bpm": 3.0,
+                "temperature_mean_c": 3.0,
+                "dynamic_acceleration_rms": 3.0,
+            },
+        ),
+    )
+    generated = []
+    labels = []
+    for name, shifts in scenarios:
+        changed = values.copy()
+        for feature, shift in shifts.items():
+            changed[:, DATASET_FEATURE_NAMES.index(feature)] += shift
+        generated.append(changed)
+        labels.extend([name] * len(changed))
+    return np.concatenate(generated, axis=0), labels
+
+
+def _score_summary(scores: Any, threshold: float, np: Any) -> dict[str, float | int]:
+    values = np.asarray(scores, dtype=np.float64)
+    return {
+        "count": int(values.size),
+        "minimum": float(np.min(values)),
+        "median": float(np.median(values)),
+        "mean": float(np.mean(values)),
+        "p95": float(np.percentile(values, 95)),
+        "maximum": float(np.max(values)),
+        "anomaly_fraction": float(np.mean(values >= threshold)),
+    }
+
+
+def _group_summaries(
+    rows: tuple[RealPpgVector, ...], scores: Any, field: str, threshold: float, np: Any
+) -> dict[str, dict[str, float | int]]:
+    groups: dict[str, list[float]] = {}
+    for row, score in zip(rows, scores):
+        if field == "age_group":
+            key = "20-29" if row.age < 30 else "30+"
+        else:
+            key = str(getattr(row, field))
+        groups.setdefault(key, []).append(float(score))
+    return {
+        key: _score_summary(values, threshold, np)
+        for key, values in sorted(groups.items())
+    }
+
+
+def train_vector_autoencoder(
+    input_path: str | Path,
+    output_directory: str | Path,
+    *,
+    epochs: int = 30,
+    batch_size: int = 64,
+    seed: int = 42,
+) -> dict[str, Any]:
+    try:
+        import numpy as np
+        import tensorflow as tf
+    except ImportError as exc:
+        raise SystemExit(
+            "real-PPG training requires Python 3.9-3.12 and: "
+            "python -m pip install -e '.[gateway-train]'"
+        ) from exc
+    if epochs < 1 or batch_size < 1:
+        raise ValueError("epochs and batch_size must be positive")
+    rows = load_real_ppg_vectors(input_path)
+    plan = participant_plan(rows, seed=seed)
+    development_rows = rows_for_subjects(rows, plan.development_subjects)
+    locked_rows = rows_for_subjects(rows, plan.locked_test_subjects)
+    random.seed(seed)
+    np.random.seed(seed)
+    tf.random.set_seed(seed)
+
+    out_of_fold_scores: list[float] = []
+    out_of_fold_rows: list[RealPpgVector] = []
+    fold_reports = []
+    best_epoch_counts = []
+    for fold_index, validation_subjects in enumerate(plan.validation_folds, 1):
+        training_subjects = tuple(
+            subject
+            for subject in plan.development_subjects
+            if subject not in set(validation_subjects)
+        )
+        training_rows = rows_for_subjects(rows, training_subjects)
+        validation_rows = rows_for_subjects(rows, validation_subjects)
+        normalizer = fit_robust_normalizer(training_rows, np)
+        training_values = normalizer.transform(training_rows, np)
+        validation_values = normalizer.transform(validation_rows, np)
+        model = _build_autoencoder(tf)
+        history = model.fit(
+            training_values,
+            training_values,
+            validation_data=(validation_values, validation_values),
+            epochs=epochs,
+            batch_size=batch_size,
+            shuffle=True,
+            callbacks=[
+                tf.keras.callbacks.EarlyStopping(
+                    monitor="val_loss", patience=5, restore_best_weights=True
+                )
+            ],
+            verbose=0,
+        )
+        best_epoch = int(np.argmin(history.history["val_loss"]) + 1)
+        best_epoch_counts.append(best_epoch)
+        quantized = _tflite_bytes(model, training_values, tf, np)
+        reconstructions = _quantized_reconstructions(
+            quantized, validation_values, tf, np
+        )
+        scores = _reconstruction_scores(validation_values, reconstructions, np)
+        out_of_fold_scores.extend(float(score) for score in scores)
+        out_of_fold_rows.extend(validation_rows)
+        fold_reports.append(
+            {
+                "fold": fold_index,
+                "training_subjects": list(training_subjects),
+                "validation_subjects": list(validation_subjects),
+                "training_rows": len(training_rows),
+                "validation_rows": len(validation_rows),
+                "best_epoch": best_epoch,
+                "minimum_validation_loss": float(min(history.history["val_loss"])),
+            }
+        )
+        tf.keras.backend.clear_session()
+
+    persistent_threshold, severe_threshold = vector_thresholds(out_of_fold_scores, np)
+    normalizer = fit_robust_normalizer(development_rows, np)
+    development_values = normalizer.transform(development_rows, np)
+    locked_values = normalizer.transform(locked_rows, np)
+    final_epochs = max(1, int(round(float(np.median(best_epoch_counts)))))
+    final_model = _build_autoencoder(tf)
+    final_history = final_model.fit(
+        development_values,
+        development_values,
+        epochs=final_epochs,
+        batch_size=batch_size,
+        shuffle=True,
+        verbose=0,
+    )
+    model_bytes = _tflite_bytes(final_model, development_values, tf, np)
+    locked_reconstructions = _quantized_reconstructions(
+        model_bytes, locked_values, tf, np
+    )
+    locked_scores = _reconstruction_scores(
+        locked_values, locked_reconstructions, np
+    )
+    simulated_values, simulated_scenarios = controlled_anomalies(locked_values, np)
+    simulated_reconstructions = _quantized_reconstructions(
+        model_bytes, simulated_values, tf, np
+    )
+    simulated_scores = _reconstruction_scores(
+        simulated_values, simulated_reconstructions, np
+    )
+    checksum = hashlib.sha256(model_bytes).hexdigest()
+    input_checksum = hashlib.sha256(Path(input_path).read_bytes()).hexdigest()
+    tensor_metadata = _quantized_tensor_metadata(model_bytes, tf)
+    model_id = f"real-ppg-vector-ae-{checksum[:12]}"
+    scenario_groups: dict[str, list[float]] = {}
+    for scenario, score in zip(simulated_scenarios, simulated_scores):
+        scenario_groups.setdefault(scenario, []).append(float(score))
+    report = {
+        "schema_version": 1,
+        "model_id": model_id,
+        "artifact_role": "real_data_development_candidate",
+        "evaluation_scope": "healthy_public_data_and_controlled_sensitivity_checks",
+        "participant_plan": {
+            "seed": seed,
+            "development_subjects": list(plan.development_subjects),
+            "locked_test_subjects": list(plan.locked_test_subjects),
+            "validation_folds": [list(fold) for fold in plan.validation_folds],
+        },
+        "cross_validation": {
+            "folds": fold_reports,
+            "out_of_fold": _score_summary(
+                out_of_fold_scores, persistent_threshold, np
+            ),
+            "by_activity": _group_summaries(
+                tuple(out_of_fold_rows), out_of_fold_scores, "activity", persistent_threshold, np
+            ),
+            "by_gender": _group_summaries(
+                tuple(out_of_fold_rows), out_of_fold_scores, "gender", persistent_threshold, np
+            ),
+            "by_age_group": _group_summaries(
+                tuple(out_of_fold_rows), out_of_fold_scores, "age_group", persistent_threshold, np
+            ),
+        },
+        "locked_normal_test": {
+            "summary": _score_summary(locked_scores, persistent_threshold, np),
+            "by_activity": _group_summaries(
+                locked_rows, locked_scores, "activity", persistent_threshold, np
+            ),
+            "by_gender": _group_summaries(
+                locked_rows, locked_scores, "gender", persistent_threshold, np
+            ),
+            "by_age_group": _group_summaries(
+                locked_rows, locked_scores, "age_group", persistent_threshold, np
+            ),
+            "scores": [float(score) for score in locked_scores],
+            "activities": [row.activity for row in locked_rows],
+            "subjects": [row.subject_id for row in locked_rows],
+        },
+        "controlled_sensitivity": {
+            name: _score_summary(scores, persistent_threshold, np)
+            for name, scores in sorted(scenario_groups.items())
+        },
+        "thresholds": {
+            "source": "quantized_out_of_fold_normal_scores",
+            "persistent_error": persistent_threshold,
+            "severe_error": severe_threshold,
+        },
+        "training": {
+            "requested_max_epochs": epochs,
+            "selected_final_epochs": final_epochs,
+            "batch_size": batch_size,
+            "final_loss": [float(value) for value in final_history.history["loss"]],
+        },
+        "controlled_scores": [float(score) for score in simulated_scores],
+        "controlled_scenarios": simulated_scenarios,
+    }
+    metadata = {
+        "schema_version": 1,
+        "model_id": model_id,
+        "artifact_role": "real_data_development_candidate",
+        "deployment_status": "blocked_pending_ble_contract_and_pi_validation",
+        "trained_at": datetime.now(timezone.utc).isoformat(),
+        "model_sha256": checksum,
+        "model_size_bytes": len(model_bytes),
+        "dataset_id": DATASET_ID,
+        "feature_manifest_id": FEATURE_MANIFEST_ID,
+        "input": {
+            **tensor_metadata["input"],
+            "features": list(DATASET_FEATURE_NAMES),
+            "normalization": normalizer.as_dict(),
+        },
+        "output": tensor_metadata["output"],
+        "thresholds": report["thresholds"],
+        "training_subjects": list(plan.development_subjects),
+        "locked_test_subjects": list(plan.locked_test_subjects),
+        "training_data": {
+            "file_name": Path(input_path).name,
+            "sha256": input_checksum,
+            "rows": len(rows),
+        },
+        "software": {
+            "python": platform.python_version(),
+            "numpy": np.__version__,
+            "tensorflow": tf.__version__,
+        },
+    }
+    destination = Path(output_directory)
+    destination.mkdir(parents=True, exist_ok=True)
+    (destination / "model.tflite").write_bytes(model_bytes)
+    (destination / "model-metadata.json").write_text(
+        json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    (destination / "training-report.json").write_text(
+        json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    return metadata
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Train and evaluate the real-PPG short-vector autoencoder"
+    )
+    parser.add_argument("input", type=Path)
+    parser.add_argument("output", type=Path)
+    parser.add_argument("--epochs", type=int, default=30)
+    parser.add_argument("--batch-size", type=int, default=64)
+    parser.add_argument("--seed", type=int, default=42)
+    args = parser.parse_args()
+    metadata = train_vector_autoencoder(
+        args.input,
+        args.output,
+        epochs=args.epochs,
+        batch_size=args.batch_size,
+        seed=args.seed,
+    )
+    print(json.dumps(metadata, indent=2, sort_keys=True))
+
+
+if __name__ == "__main__":
+    main()

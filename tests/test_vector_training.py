@@ -14,6 +14,8 @@ from home_health_monitor.gateway.vector_training import (
     fit_robust_normalizer,
     load_real_ppg_vectors,
     participant_plan,
+    controlled_anomalies,
+    vector_thresholds,
 )
 
 
@@ -25,6 +27,24 @@ def vector(subject: str, *, valid: float = 1.0, heart_rate: float = 70.0) -> Rea
 
 
 class VectorTrainingTests(unittest.TestCase):
+    def test_thresholds_are_selected_from_quantized_normal_scores(self) -> None:
+        persistent, severe = vector_thresholds([0.1, 0.2, 0.3, 0.4], np)
+
+        self.assertGreaterEqual(persistent, 0.3)
+        self.assertGreaterEqual(severe, persistent * 2.0)
+
+    def test_controlled_anomalies_cover_each_expected_signal_family(self) -> None:
+        values = np.zeros((2, len(DATASET_FEATURE_NAMES)), dtype=np.float32)
+
+        changed, labels = controlled_anomalies(values, np)
+
+        self.assertEqual((8, len(DATASET_FEATURE_NAMES)), changed.shape)
+        self.assertEqual(
+            {"heart_rate_shift", "temperature_shift", "motion_shift", "combined_drift"},
+            set(labels),
+        )
+        self.assertTrue(np.all(np.any(changed != 0.0, axis=1)))
+
     def test_participant_plan_is_deterministic_and_has_no_leakage(self) -> None:
         rows = [vector(f"s{index}") for index in range(1, 23)]
 
