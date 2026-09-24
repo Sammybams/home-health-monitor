@@ -86,8 +86,8 @@ The Pi loads `model.tflite` and `model-metadata.json` together. The runtime:
 - reconstructs it and records per-feature and overall errors;
 - combines one eight-minute batch into a binary prediction;
 - uses the public-data threshold until personal calibration is ready;
-- after 288 eight-minute calibration intervals (48 hours), uses that person's
-  mean reconstruction error plus three standard deviations.
+- after 48 elapsed hours and at least 288 valid eight-minute intervals, uses
+  that person's mean reconstruction error plus three standard deviations.
 
 The reusable runtime is
 [`vector_autoencoder.py`](../../src/home_health_monitor/gateway/vector_autoencoder.py).

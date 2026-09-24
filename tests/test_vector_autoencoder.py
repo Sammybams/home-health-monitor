@@ -97,10 +97,18 @@ class VectorAutoencoderTests(unittest.TestCase):
 
     def test_personal_threshold_requires_48_hour_interval_count(self) -> None:
         with self.assertRaisesRegex(ModelError, "requires 288"):
-            calibrate_personal_reconstruction_threshold([0.1] * 287)
+            calibrate_personal_reconstruction_threshold(
+                [0.1] * 287, elapsed_hours=48
+            )
+
+        with self.assertRaisesRegex(ModelError, "48 elapsed hours"):
+            calibrate_personal_reconstruction_threshold(
+                [0.1] * 288, elapsed_hours=47.9
+            )
 
         threshold = calibrate_personal_reconstruction_threshold(
-            [0.1] * (MINIMUM_PERSONAL_CALIBRATION_INTERVALS - 1) + [0.2]
+            [0.1] * (MINIMUM_PERSONAL_CALIBRATION_INTERVALS - 1) + [0.2],
+            elapsed_hours=48,
         )
 
         self.assertGreater(threshold, 0.1)

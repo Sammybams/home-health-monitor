@@ -151,8 +151,9 @@ contains about 16 scores. There is no 48-hour tensor: the 48 hours are system
 calibration history.
 
 During calibration the general public-data threshold keeps the model path
-binary. After 288 eight-minute intervals, the personal model threshold becomes
-that person's mean normal reconstruction error plus three standard deviations.
+binary. After 48 elapsed hours and at least 288 valid eight-minute intervals,
+the personal model threshold becomes that person's mean normal reconstruction
+error plus three standard deviations.
 The physiological personal-baseline tier operates independently, including
 continuous SpO2 from the wearable.
 

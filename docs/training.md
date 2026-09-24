@@ -33,7 +33,8 @@ commands are `home-health-ppg-features`, `home-health-ppg-train`, and
 V2's first 48 hours are calibration history, not a model tensor. The runtime
 starts with its grouped public-data threshold so it can always return a binary
 result, then changes to the person's mean reconstruction error plus three
-standard deviations after 288 eight-minute calibration intervals.
+standard deviations after both 48 elapsed hours and at least 288 valid
+eight-minute calibration intervals (80% coverage).
 
 The V2 artifact remains a development candidate until the final 20-field
 wearable formulas and BLE payload match its manifest, normal target-wearable

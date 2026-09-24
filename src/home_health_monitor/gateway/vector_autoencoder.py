@@ -291,8 +291,11 @@ class VectorAutoencoderModel:
 
 
 def calibrate_personal_reconstruction_threshold(
-    normal_interval_scores: Iterable[float],
+    normal_interval_scores: Iterable[float], *, elapsed_hours: float
 ) -> float:
+    elapsed = _finite(elapsed_hours, "calibration elapsed hours")
+    if elapsed < 48.0:
+        raise ModelError("personal calibration requires 48 elapsed hours")
     values = [
         _finite(value, "calibration reconstruction score")
         for value in normal_interval_scores
