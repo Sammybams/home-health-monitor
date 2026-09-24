@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "subject_id": "pi-install-check",
+  "device_id": "example-wearable",
+  "sequence": 1,
+  "interval_start": "2026-09-24T08:00:00+01:00",
+  "interval_end": "2026-09-24T08:08:00+01:00",
+  "feature_manifest_id": "real-ppg-core-v2-candidate-1",
+  "vectors": [
+    {
+      "heart_rate_bpm": 72.0,
+      "heart_rate_valid": 1,
+      "ppg_rr_interval_std_ms": 35.0,
+      "ppg_relative_pulse_amplitude": 0.08,
+      "ppg_ac_rms_normalized": 0.02,
+      "ppg_signal_quality": 0.9,
+      "temperature_mean_c": 32.5,
+      "temperature_std_c": 0.08,
+      "acceleration_magnitude_mean": 1.0,
+      "acceleration_magnitude_std": 0.03,
+      "dynamic_acceleration_rms": 0.04,
+      "motion_intensity": 0.04
+    }
+  ]
+}

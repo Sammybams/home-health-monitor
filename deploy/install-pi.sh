@@ -12,8 +12,8 @@ Install the home gateway on a 64-bit Raspberry Pi:
   cd /opt/home-health-monitor && sudo ./deploy/install-pi.sh
   sudo ./deploy/verify-pi.sh
 
-The installer adds the lightweight runtime, bundled development model,
-SQLite service, and automatic startup. It does not install SMS or BLE code.
+The installer adds the lightweight runtime, both bundled models, SQLite
+service, and automatic startup. It does not install SMS or BLE code.
 EOF
 }
 
@@ -60,14 +60,21 @@ fi
 "$INSTALL_DIR/.venv/bin/python" -m pip install --upgrade pip
 "$INSTALL_DIR/.venv/bin/python" -m pip install -e "$INSTALL_DIR[gateway-pi]"
 
-echo "[4/6] Installing the bundled development model"
+echo "[4/6] Installing both bundled gateway models"
 install -d -o root -g home-health -m 0750 "$INSTALL_DIR/artifacts/gateway"
+install -d -o root -g home-health -m 0750 "$INSTALL_DIR/artifacts/real-ppg-v2"
 install -o root -g home-health -m 0640 \
     "$INSTALL_DIR/models/development-demo/model.tflite" \
     "$INSTALL_DIR/artifacts/gateway/model.tflite"
 install -o root -g home-health -m 0640 \
     "$INSTALL_DIR/models/development-demo/model-metadata.json" \
     "$INSTALL_DIR/artifacts/gateway/model-metadata.json"
+install -o root -g home-health -m 0640 \
+    "$INSTALL_DIR/models/real-ppg-v2/model.tflite" \
+    "$INSTALL_DIR/artifacts/real-ppg-v2/model.tflite"
+install -o root -g home-health -m 0640 \
+    "$INSTALL_DIR/models/real-ppg-v2/model-metadata.json" \
+    "$INSTALL_DIR/artifacts/real-ppg-v2/model-metadata.json"
 
 echo "[5/6] Securing files and enabling automatic startup"
 chown -R root:home-health "$INSTALL_DIR"
