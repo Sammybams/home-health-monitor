@@ -171,6 +171,7 @@ PYTHONPATH=src python3 -m unittest discover -s tests -v
 
 ## Documentation
 
+- [Model registry and V1/V2 comparison](docs/models/README.md)
 - [API and packet contract](docs/api.md)
 - [End-to-end model operation and Raspberry Pi use](docs/end-to-end.md)
 - [Implemented architecture and decision logic](docs/design.md)
