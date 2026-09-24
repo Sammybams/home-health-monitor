@@ -11,6 +11,7 @@ from home_health_monitor.datasets.pulse_transit import (
     PulseTransitArchive,
     PulseTransitDataError,
 )
+from home_health_monitor.datasets.audit import audit_pulse_transit
 
 
 HEADER = """s1_sit 3 500 4
@@ -83,6 +84,38 @@ class PulseTransitArchiveTests(unittest.TestCase):
 
         with self.assertRaisesRegex(PulseTransitDataError, "subjects_info"):
             PulseTransitArchive(bad_path)
+
+    def test_audit_reports_real_dataset_role_and_missing_continuous_spo2(self) -> None:
+        report = audit_pulse_transit(self.path)
+
+        self.assertEqual(1, report.participant_count)
+        self.assertEqual(1, report.recording_count)
+        self.assertEqual(4, report.csv_valid_rows)
+        self.assertEqual(0, report.csv_malformed_rows)
+        self.assertEqual(0, report.recordings_with_csv_length_mismatch)
+        self.assertTrue(report.feature_availability["heart_rate_bpm"])
+        self.assertFalse(report.feature_availability["spo2_percent"])
+        self.assertFalse(report.production_training_eligible)
+        self.assertEqual("real_data_development_candidate", report.dataset_role)
+
+    def test_csv_scan_records_malformed_rows_without_hiding_them(self) -> None:
+        malformed = self.path.with_name("malformed.zip")
+        self.addCleanup(malformed.unlink, missing_ok=True)
+        with zipfile.ZipFile(self.path) as source, zipfile.ZipFile(malformed, "w") as target:
+            for item in source.infolist():
+                content = source.read(item.filename)
+                if item.filename.endswith("/csv/s1_sit.csv"):
+                    content += b"2021-01-01 00:00:01,10,0\n"
+                target.writestr(item, content)
+
+        report = audit_pulse_transit(malformed)
+
+        self.assertEqual(4, report.csv_valid_rows)
+        self.assertEqual(1, report.csv_malformed_rows)
+        self.assertEqual(1, report.recordings_with_csv_length_mismatch)
+        self.assertEqual("s1_sit", report.malformed_rows[0]["record"])
+        self.assertEqual(6, report.malformed_rows[0]["line_number"])
+        self.assertEqual(1, report.csv_length_mismatches[0]["difference"])
 
 
 if __name__ == "__main__":

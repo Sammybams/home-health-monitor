@@ -34,6 +34,13 @@ class PulseTransitCsvRow:
     values: dict[str, str]
 
 
+@dataclass(frozen=True, slots=True)
+class PulseTransitCsvScan:
+    record: str
+    valid_rows: int
+    malformed_rows: tuple[dict[str, int | str], ...]
+
+
 def _metadata_comment(line: str) -> dict[str, str]:
     return {
         match.group(1): match.group(2).strip()
@@ -158,3 +165,29 @@ class PulseTransitArchive:
                         f"expected {len(header)}"
                     )
                 yield PulseTransitCsvRow(line_number, dict(zip(header, row)))
+
+    def scan_csv(self, record_name: str) -> PulseTransitCsvScan:
+        """Count structurally valid rows while retaining every malformed location."""
+        if record_name not in self._subject_rows:
+            raise PulseTransitDataError(f"unknown record {record_name}")
+        member = self._member(f"csv/{record_name}.csv")
+        malformed = []
+        valid = 0
+        with self._archive.open(member) as raw:
+            reader = csv.reader(io.TextIOWrapper(raw, encoding="utf-8-sig", newline=""))
+            header = next(reader, None)
+            if not header or len(header) != len(set(header)):
+                raise PulseTransitDataError(f"{record_name}.csv has an invalid header")
+            for line_number, row in enumerate(reader, 2):
+                if len(row) == len(header):
+                    valid += 1
+                else:
+                    malformed.append(
+                        {
+                            "record": record_name,
+                            "line_number": line_number,
+                            "expected_columns": len(header),
+                            "actual_columns": len(row),
+                        }
+                    )
+        return PulseTransitCsvScan(record_name, valid, tuple(malformed))
