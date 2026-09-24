@@ -55,11 +55,16 @@ V2 scores a short feature vector every roughly 30 seconds and combines the
 scores every eight minutes. The first 48 hours calibrate a personal
 reconstruction threshold; they are not passed to the model as one large input.
 
-The Pi installer does not activate V2 yet. The public dataset supports a
-12-field experimental vector and has no continuous SpO2. Victory's wearable is
-expected to send about 20 fields. Activating V2 before those formulas, units,
-order, quality flags, and one decoded BLE example match would produce invalid
-inputs even though the model file itself loads.
+The Pi installer loads V2 alongside V1 and exposes it at `/v3/intervals`. The
+public dataset supports a 12-field experimental vector and has no continuous
+SpO2. Victory's eventual roughly 20-field wearable message therefore cannot be
+silently treated as the same input: its formulas, units, ordering and quality
+flags still need an explicit mapping and one decoded BLE example for testing.
 
 Read the [V2 model card](../models/real-ppg-v2.md) for the exact data, validation,
 plots, and promotion checklist.
+
+The six saved evaluation charts are in
+[`docs/assets/real-ppg-v2`](../assets/real-ppg-v2/). The numeric audit,
+feature-extraction report, training report and metadata are in
+[`models/real-ppg-v2`](../../models/real-ppg-v2/).

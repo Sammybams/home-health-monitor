@@ -46,13 +46,23 @@ The HTTP service listens only on `127.0.0.1`, so it is intended for a BLE
 process on the same Pi. This repository does not include SMS or notification
 delivery.
 
-## Where V2 fits
+## Use the real-PPG V2 route
 
-The V2 candidate will replace step 4 after Victory confirms the exact BLE
-vector. It will score each roughly 30-second vector, combine about 16 scores
-every eight minutes, and use a personal reconstruction threshold after the
-first 48 hours. The wearable, personal vital-sign baseline, and quality checks
-still run, so the final output remains one binary result.
+V2 is installed and running beside V1. A BLE bridge can post an eight-minute
+interval using the exact candidate contract:
 
-Do not copy the V2 files over V1 yet: its committed 12-field dataset manifest is
-an experiment, not the final 20-field wearable contract.
+```sh
+curl -sS -X POST http://127.0.0.1:8080/v3/intervals \
+  -H 'Content-Type: application/json' \
+  --data-binary @/opt/home-health-monitor/examples/vector-interval.json
+```
+
+V2 scores every supplied short vector, uses the interval's 95th-percentile
+score, and returns `normal` or `anomaly`. Its history and calibration progress
+survive a restart. After 48 elapsed hours and 288 accepted normal intervals it
+uses the person's own reconstruction threshold.
+
+This route deliberately requires the committed 12-field research manifest. It
+does not guess how an eventual 20-field wearable payload maps to those fields.
+V1 remains the complete route for heart rate, SpO2, temperature, motion,
+quality, and the wearable decision until that mapping is supplied and tested.

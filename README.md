@@ -68,11 +68,12 @@ immediate `normal` or `anomaly` result.
 - GalaxyPPG and supplied-synthetic-data audit tools;
 - automated tests for the gateway, model contract, training input, and API.
 
-Two trained models are versioned. V1 is the installed 18 KiB development default
-and proves the existing HTTP/Pi path. V2 is a 4.2 KiB real-PPG development
-candidate trained on 22 people, with five-fold participant-grouped validation
-and eight-minute aggregation. V2 is not promoted until Victory's exact wearable
-feature/BLE contract and target-Pi measurements are available. See the
+Two trained models are versioned and installed on the Pi. V1 is the 18 KiB
+complete vital-sign route. V2 is a 4.2 KiB real-PPG development candidate
+trained on 22 people, with five-fold participant-grouped validation and
+eight-minute aggregation. V2 has its own strict endpoint; it is not substituted
+for V1 until Victory's exact wearable feature/BLE mapping and target-Pi
+measurements are available. See the
 [model comparison](docs/models/README.md).
 
 Both actual training runs are executable notebooks:
@@ -91,9 +92,9 @@ cd /opt/home-health-monitor
 sudo ./deploy/install-pi.sh
 ```
 
-The installer adds the lightweight LiteRT runtime and included model, starts
-the service, and verifies a real prediction. It runs in the background and
-starts after reboot. See the short [Raspberry Pi guide](docs/raspberry-pi/README.md).
+The installer adds LiteRT and both included models, starts the service, verifies
+both checksums and both prediction routes, then keeps it running across reboots.
+See the short [Raspberry Pi guide](docs/raspberry-pi/README.md).
 
 ## Prediction order
 
@@ -136,11 +137,13 @@ curl -sS -X POST http://127.0.0.1:8080/v2/packets \
   --data-binary @examples/packet.json
 ```
 
-The service looks for these model files by default:
+The service looks for both model pairs by default:
 
 ```text
 artifacts/gateway/model.tflite
 artifacts/gateway/model-metadata.json
+artifacts/real-ppg-v2/model.tflite
+artifacts/real-ppg-v2/model-metadata.json
 ```
 
 Install NumPy and a compatible LiteRT/TFLite interpreter to enable the model.

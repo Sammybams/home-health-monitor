@@ -115,6 +115,22 @@ or:
 {"status":"ready","hours":48.0}
 ```
 
+## POST `/v3/intervals`
+
+This is the installed V2 real-PPG candidate route. Post the exact object shown
+in [`examples/vector-interval.json`](../examples/vector-interval.json). It
+accepts 1-32 ordered short-window vectors over a 1-15 minute interval and
+rejects missing, extra, non-finite, or wrong-manifest fields.
+
+It always returns `decision: normal` or `decision: anomaly`, plus the interval
+score, threshold, coverage, persistence/severity state, contributing signal,
+and calibration progress. Reusing a device sequence returns the original
+stored result. Use `GET /v3/prediction?subject_id=...` for the latest result.
+
+V2's 12 fields are dataset-derived PPG heart-rate/quality features,
+temperature summaries, and acceleration/motion summaries. This contract does
+not include continuous SpO2 and is not the unconfirmed 20-field BLE contract.
+
 ## GET `/health`
 
 ```json
@@ -122,7 +138,9 @@ or:
   "status": "ready",
   "database": "ready",
   "model_loaded": false,
-  "model_reason": "could not load autoencoder artifact: ..."
+  "model_reason": "could not load autoencoder artifact: ...",
+  "vector_model_loaded": false,
+  "vector_model_reason": "could not load vector autoencoder: ..."
 }
 ```
 

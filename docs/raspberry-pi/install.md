@@ -23,9 +23,9 @@ cd /opt/home-health-monitor
 sudo ./deploy/install-pi.sh
 ```
 
-The installer adds the small LiteRT runtime, installs the V1 development
-default, creates the database service, and makes the gateway start after every
-reboot. It can take several minutes on a Pi Zero 2 W.
+The installer adds the small LiteRT runtime, installs both V1 and V2, creates
+the SQLite service, and makes the gateway start after every reboot. It can take
+several minutes on a Pi Zero 2 W.
 
 ## 3. Confirm it works
 
@@ -41,6 +41,9 @@ database: ready
 model: gateway-ae-cc9b07502845
 model checksum: verified
 sample prediction: normal
+vector model: real-ppg-vector-autoencoder-v2
+vector model checksum: verified
+vector sample prediction: normal
 ```
 
 The prediction may also be `anomaly`; both are valid binary results.
@@ -50,6 +53,5 @@ command is useful for development, but it stops when the terminal closes. The
 installer runs the gateway in the background using `systemd` and starts it
 again after a reboot.
 
-The repository also includes the V2 real-PPG candidate, but the installer does
-not activate it. See [the model guide](model.md) for why the BLE contract and a
-target-Pi benchmark must be completed first.
+The verifier fails unless both models load, both file checksums match their
+metadata, and both endpoints return a binary prediction.

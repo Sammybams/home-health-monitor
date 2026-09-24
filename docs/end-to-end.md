@@ -5,8 +5,8 @@ what happens for every wearable packet, and how the home gateway runs on a
 Raspberry Pi Zero 2 W. This repository contains the home-gateway side only. It
 does not contain wearable firmware, a BLE driver, or SMS functionality.
 
-The first path below is the currently installed V1 service. V2 is a committed
-short-vector candidate described later on this page.
+V1 is the complete packet path below. V2 is also installed as a separate,
+strict short-vector route described later on this page.
 
 ## Complete system boundary
 
@@ -18,6 +18,7 @@ flowchart LR
     W --> I[Immediate wearable check]
     W -->|BLE feature packet| R[BLE-to-JSON bridge]
     R -->|POST /v2/packets| G[Pi home gateway]
+    R -->|POST /v3/intervals| V[V2 real-PPG inference]
     G --> S[(SQLite history)]
     S --> P[48-hour personal baseline]
     S --> M[24-hour int8 autoencoder]
@@ -230,17 +231,18 @@ behaviour rather than field-population accuracy. The full evidence is in the
 [model performance report](development-model.md) and
 [`performance-summary.json`](../models/development-demo/performance-summary.json).
 
-## Install the development model on the Pi
+## Install both models on the Pi
 
-The Pi installer includes the development model automatically:
+The Pi installer includes V1 and V2 automatically:
 
 ```sh
 sudo /opt/home-health-monitor/deploy/install-pi.sh
 ```
 
-It verifies `model_loaded: true`, the artifact checksum, and a sample binary
-prediction. Follow the short [Raspberry Pi guide](raspberry-pi/README.md) for
-installation, BLE consumption, updates, and logs.
+It verifies `model_loaded: true`, `vector_model_loaded: true`, both artifact
+checksums, and a binary result from both routes. Follow the short
+[Raspberry Pi guide](raspberry-pi/README.md) for installation, BLE consumption,
+updates, and logs.
 
 ## Moving from development to field use
 
