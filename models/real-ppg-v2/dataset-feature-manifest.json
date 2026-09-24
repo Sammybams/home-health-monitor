@@ -3,7 +3,8 @@
   "status": "dataset_feature_candidate",
   "is_production_ble_contract": false,
   "segment_seconds": 5,
-  "source_ppg_channel": "pleth_2",
+  "source_ppg_channels_for_heart_rate": ["pleth_1", "pleth_2", "pleth_3"],
+  "source_ppg_channel_for_morphology": "pleth_2",
   "source_temperature_channel": "temp_1",
   "feature_order": [
     "heart_rate_bpm",
@@ -23,7 +24,7 @@
     "ecg_reference_hr_bpm"
   ],
   "notes": [
-    "Heart rate is derived from distal infrared PPG; ECG peaks are used only to measure extraction error.",
+    "Heart rate is the median of the distal red, infrared, and green PPG estimates when all three agree within 5 BPM; ECG peaks are used only to measure extraction error.",
     "A failed PPG heart-rate extraction is encoded as heart_rate_bpm=0 and heart_rate_valid=0 so downstream processing can still produce a prediction.",
     "This manifest describes the public dataset experiment. It must not be treated as the wearable BLE payload contract until the wearable feature formulas are confirmed."
   ]

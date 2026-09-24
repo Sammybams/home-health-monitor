@@ -22,7 +22,16 @@ DATASET_FEATURE_NAMES = (
     "motion_intensity",
 )
 
-_REQUIRED_COLUMNS = ("pleth_2", "peaks", "temp_1", "a_x", "a_y", "a_z")
+_REQUIRED_COLUMNS = (
+    "pleth_1",
+    "pleth_2",
+    "pleth_3",
+    "peaks",
+    "temp_1",
+    "a_x",
+    "a_y",
+    "a_z",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -126,7 +135,31 @@ def extract_segment_features(
     if not math.isfinite(sample_rate_hz) or sample_rate_hz <= 0:
         raise ValueError("sample_rate_hz must be finite and positive")
     arrays = {name: _finite_array(rows, name) for name in _REQUIRED_COLUMNS}
-    ppg_values = _ppg_summary(arrays["pleth_2"], sample_rate_hz)
+    ppg_summaries = [
+        _ppg_summary(arrays[name], sample_rate_hz)
+        for name in ("pleth_1", "pleth_2", "pleth_3")
+    ]
+    ppg_values = dict(ppg_summaries[1])
+    heart_rates = np.asarray(
+        [summary["heart_rate_bpm"] for summary in ppg_summaries], dtype=np.float64
+    )
+    channel_spread = float(np.max(heart_rates) - np.min(heart_rates))
+    if all(summary["heart_rate_valid"] == 1.0 for summary in ppg_summaries) and channel_spread <= 5.0:
+        ppg_values["heart_rate_bpm"] = float(np.median(heart_rates))
+        ppg_values["heart_rate_valid"] = 1.0
+        ppg_values["ppg_rr_interval_std_ms"] = float(
+            np.median([summary["ppg_rr_interval_std_ms"] for summary in ppg_summaries])
+        )
+        agreement = max(0.0, 1.0 - channel_spread / 10.0)
+        ppg_values["ppg_signal_quality"] = float(
+            agreement
+            * np.mean([summary["ppg_signal_quality"] for summary in ppg_summaries])
+        )
+    else:
+        ppg_values["heart_rate_bpm"] = 0.0
+        ppg_values["heart_rate_valid"] = 0.0
+        ppg_values["ppg_rr_interval_std_ms"] = 0.0
+        ppg_values["ppg_signal_quality"] = 0.0
     temperature = arrays["temp_1"]
     acceleration = np.column_stack((arrays["a_x"], arrays["a_y"], arrays["a_z"]))
     magnitude = np.linalg.norm(acceleration, axis=1)

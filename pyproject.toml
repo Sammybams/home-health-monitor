@@ -34,6 +34,7 @@ home-health-dataset-audit = "home_health_monitor.datasets.audit:main"
 home-health-development-data = "home_health_monitor.datasets.development:main"
 home-health-data-evidence = "home_health_monitor.datasets.evidence:main"
 home-health-development-report = "home_health_monitor.reporting:main"
+home-health-ppg-features = "home_health_monitor.datasets.pulse_transit_build:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

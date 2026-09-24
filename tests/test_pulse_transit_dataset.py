@@ -138,6 +138,26 @@ class PulseTransitArchiveTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "malformed policy"):
                 list(dataset.iter_csv_rows("s1_sit", malformed="ignore"))
 
+    def test_segments_never_bridge_across_a_skipped_malformed_row(self) -> None:
+        malformed = self.path.with_name("segment-gap.zip")
+        self.addCleanup(malformed.unlink, missing_ok=True)
+        with zipfile.ZipFile(self.path) as source, zipfile.ZipFile(malformed, "w") as target:
+            for item in source.infolist():
+                content = source.read(item.filename)
+                if item.filename.endswith("/csv/s1_sit.csv"):
+                    lines = content.decode().splitlines()
+                    lines.insert(2, "broken,row")
+                    content = ("\n".join(lines) + "\n").encode()
+                target.writestr(item, content)
+
+        with PulseTransitArchive(malformed) as dataset:
+            segments = list(
+                dataset.iter_csv_segments("s1_sit", 2, malformed="skip")
+            )
+
+        self.assertEqual(1, len(segments))
+        self.assertEqual((4, 5), tuple(row.line_number for row in segments[0]))
+
     def test_committed_real_archive_audit_is_portable_and_records_defects(self) -> None:
         root = Path(__file__).resolve().parents[1]
         report = json.loads(

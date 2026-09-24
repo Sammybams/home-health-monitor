@@ -29,7 +29,9 @@ class PulseTransitFeatureTests(unittest.TestCase):
         for index in range(time.size):
             rows.append(
                 {
+                    "pleth_1": str(ppg[index] * 0.99),
                     "pleth_2": str(ppg[index]),
+                    "pleth_3": str(ppg[index] * 1.01),
                     "peaks": str(peaks[index]),
                     "temp_1": "33.5",
                     "a_x": "0.0",
@@ -48,10 +50,36 @@ class PulseTransitFeatureTests(unittest.TestCase):
         self.assertAlmostEqual(0.0, result.values["dynamic_acceleration_rms"], places=6)
         self.assertGreater(result.values["ppg_signal_quality"], 0.9)
 
+    def test_disagreeing_ppg_channels_mark_heart_rate_unavailable(self) -> None:
+        sample_rate = 500.0
+        time = np.arange(int(sample_rate * 5.0)) / sample_rate
+        rows = []
+        for index in range(time.size):
+            rows.append(
+                {
+                    "pleth_1": str(70_000 + 2_000 * np.sin(2 * math.pi * 1.0 * time[index])),
+                    "pleth_2": str(70_000 + 2_000 * np.sin(2 * math.pi * 1.5 * time[index])),
+                    "pleth_3": str(70_000 + 2_000 * np.sin(2 * math.pi * 2.0 * time[index])),
+                    "peaks": "0",
+                    "temp_1": "33.5",
+                    "a_x": "0",
+                    "a_y": "0",
+                    "a_z": "9.81",
+                }
+            )
+
+        result = extract_segment_features(rows, sample_rate_hz=sample_rate)
+
+        self.assertEqual(0.0, result.values["heart_rate_bpm"])
+        self.assertEqual(0.0, result.values["heart_rate_valid"])
+        self.assertEqual(0.0, result.values["ppg_signal_quality"])
+
     def test_rejects_non_finite_or_missing_required_values(self) -> None:
         rows = [
             {
+                "pleth_1": "1",
                 "pleth_2": "nan",
+                "pleth_3": "1",
                 "peaks": "0",
                 "temp_1": "33.5",
                 "a_x": "0",

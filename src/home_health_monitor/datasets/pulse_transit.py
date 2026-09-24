@@ -183,8 +183,12 @@ class PulseTransitArchive:
         if segment_rows <= 0:
             raise ValueError("segment_rows must be positive")
         segment: list[PulseTransitCsvRow] = []
+        previous_line_number: int | None = None
         for row in self.iter_csv_rows(record_name, malformed=malformed):
+            if previous_line_number is not None and row.line_number != previous_line_number + 1:
+                segment.clear()
             segment.append(row)
+            previous_line_number = row.line_number
             if len(segment) == segment_rows:
                 yield tuple(segment)
                 segment.clear()

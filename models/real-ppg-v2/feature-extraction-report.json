@@ -1,0 +1,64 @@
+{
+  "activity_counts": {
+    "run": 2155,
+    "sit": 2152,
+    "walk": 2123
+  },
+  "dataset_id": "pulse-transit-time-ppg-1.1.0",
+  "ecg_reference_valid_fraction": 1.0,
+  "extraction_failure_count": 0,
+  "extraction_failures": [],
+  "feature_manifest_id": "real-ppg-core-v2-candidate-1",
+  "feature_names": [
+    "heart_rate_bpm",
+    "heart_rate_valid",
+    "ppg_rr_interval_std_ms",
+    "ppg_relative_pulse_amplitude",
+    "ppg_ac_rms_normalized",
+    "ppg_signal_quality",
+    "temperature_mean_c",
+    "temperature_std_c",
+    "acceleration_magnitude_mean",
+    "acceleration_magnitude_std",
+    "dynamic_acceleration_rms",
+    "motion_intensity"
+  ],
+  "feature_rows": 6430,
+  "heart_rate_valid_fraction": 0.6922239502332815,
+  "output_name": "real-ppg-features.jsonl",
+  "output_sha256": "6edb67e9a5788f5ed82b593feb77debb607a12b4f742036da590c572a19d6355",
+  "ppg_vs_ecg_heart_rate": {
+    "bias_bpm": -0.03256972759259792,
+    "count": 4451,
+    "mae_bpm": 1.7775490180642979,
+    "p95_absolute_error_bpm": 5.1752031121357405,
+    "rmse_bpm": 4.7253334728196625
+  },
+  "ppg_vs_ecg_heart_rate_by_activity": {
+    "run": {
+      "bias_bpm": -0.5693628981387414,
+      "count": 1429,
+      "mae_bpm": 2.050326144387135,
+      "p95_absolute_error_bpm": 7.118946919108988,
+      "rmse_bpm": 4.739787756889539
+    },
+    "sit": {
+      "bias_bpm": 0.35327802167771344,
+      "count": 1926,
+      "mae_bpm": 1.0696641145073187,
+      "p95_absolute_error_bpm": 2.8138749616289687,
+      "rmse_bpm": 2.83286585980409
+    },
+    "walk": {
+      "bias_bpm": -0.010731519913930723,
+      "count": 1096,
+      "mae_bpm": 2.665859064355729,
+      "p95_absolute_error_bpm": 7.229888830410996,
+      "rmse_bpm": 6.876495208894271
+    }
+  },
+  "schema_version": 1,
+  "segment_seconds": 5.0,
+  "source_archive_name": "pulse-transit-time-ppg.zip",
+  "source_archive_sha256": "fbd8defee1be6af4496b9191cbc915a5bdf81b4766148b830aae6f4cfa7677f9"
+}
