@@ -556,6 +556,7 @@ def train_vector_autoencoder(
             "intervals_by_age_group": _interval_group_summaries(
                 out_of_fold_intervals, "age_group", persistent_threshold, np
             ),
+            "intervals": list(out_of_fold_intervals),
         },
         "locked_normal_test": {
             "vector_summary": _score_summary(locked_scores, persistent_threshold, np),
@@ -624,6 +625,7 @@ def train_vector_autoencoder(
         },
         "output": tensor_metadata["output"],
         "thresholds": report["thresholds"],
+        "aggregation": report["aggregation"],
         "training_subjects": list(plan.development_subjects),
         "locked_test_subjects": list(plan.locked_test_subjects),
         "training_data": {
